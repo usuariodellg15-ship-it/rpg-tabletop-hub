@@ -51,7 +51,7 @@ export default function CampaignPage() {
             <div>
               <div className="flex items-center gap-3 mb-2">
                 <h1 className="text-3xl font-heading font-bold">{campaign.name}</h1>
-                <Badge className={campaign.system === '5e' ? 'badge-medieval' : 'badge-wildwest'}>
+                <Badge className={campaign.system === '5e' ? 'badge-medieval' : campaign.system === 'autoral' ? 'badge-wildwest' : 'badge-cosmic'}>
                   {getSystemName(campaign.system)}
                 </Badge>
               </div>

@@ -119,6 +119,7 @@ export default function CampaignsPage() {
               <SelectItem value="all">Todos os Sistemas</SelectItem>
               <SelectItem value="5e">5e (SRD)</SelectItem>
               <SelectItem value="autoral">Sistema Autoral</SelectItem>
+              <SelectItem value="horror">Horror Cósmico</SelectItem>
             </SelectContent>
           </Select>
         </div>
@@ -168,7 +169,7 @@ export default function CampaignsPage() {
                       <div className="absolute top-3 left-3 flex gap-2">
                         <Badge 
                           variant={campaign.status === 'active' ? 'default' : 'secondary'}
-                          className={campaign.system === '5e' ? 'badge-medieval' : 'badge-wildwest'}
+                          className={campaign.system === '5e' ? 'badge-medieval' : campaign.system === 'autoral' ? 'badge-wildwest' : 'badge-cosmic'}
                         >
                           {getSystemName(campaign.system)}
                         </Badge>

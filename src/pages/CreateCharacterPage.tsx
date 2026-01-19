@@ -19,9 +19,24 @@ export default function CreateCharacterPage() {
   const [attrs, setAttrs] = useState<Record<string, number>>({});
 
   const is5e = campaign?.system === '5e';
-  const attrNames = is5e 
-    ? ['Força', 'Destreza', 'Constituição', 'Inteligência', 'Sabedoria', 'Carisma']
-    : ['Força', 'Agilidade', 'Vigor', 'Intelecto', 'Vontade', 'Presença'];
+  const isAutoral = campaign?.system === 'autoral';
+  const isHorror = campaign?.system === 'horror';
+
+  const getAttrNames = () => {
+    if (is5e) return ['Força', 'Destreza', 'Constituição', 'Inteligência', 'Sabedoria', 'Carisma'];
+    if (isAutoral) return ['Força', 'Agilidade', 'Vigor', 'Intelecto', 'Vontade', 'Presença'];
+    if (isHorror) return ['Força', 'Destreza', 'Constituição', 'Inteligência', 'Educação', 'Poder', 'Aparência', 'Tamanho'];
+    return [];
+  };
+
+  const attrNames = getAttrNames();
+
+  const getClassPlaceholder = () => {
+    if (is5e) return "Ex: Paladina, Mago, Ladino";
+    if (isAutoral) return "Ex: Pistoleiro, Curandeira, Fora-da-Lei";
+    if (isHorror) return "Ex: Professor, Jornalista, Detetive";
+    return "Ex: Guerreiro";
+  };
 
   const handleCreate = () => {
     toast.success('Personagem criado com sucesso!');
@@ -44,22 +59,35 @@ export default function CreateCharacterPage() {
 
         {step === 1 && (
           <Card><CardHeader><CardTitle>Passo 1: Identidade</CardTitle></CardHeader><CardContent className="space-y-4">
-            <div><Label>Nome do Personagem</Label><Input value={name} onChange={e => setName(e.target.value)} placeholder="Ex: Lyanna Raio de Prata" /></div>
-            <div><Label>Classe / Arquétipo</Label><Input value={charClass} onChange={e => setCharClass(e.target.value)} placeholder={is5e ? "Ex: Paladina" : "Ex: Pistoleiro"} /></div>
+            <div><Label>Nome do Personagem</Label><Input value={name} onChange={e => setName(e.target.value)} placeholder="Ex: Dr. Henry Armitage" /></div>
+            <div><Label>Classe / Ocupação</Label><Input value={charClass} onChange={e => setCharClass(e.target.value)} placeholder={getClassPlaceholder()} /></div>
             <Button onClick={() => setStep(2)} className="w-full">Próximo<ArrowRight className="h-4 w-4 ml-2" /></Button>
           </CardContent></Card>
         )}
 
         {step === 2 && (
           <Card><CardHeader><CardTitle>Passo 2: Atributos</CardTitle></CardHeader><CardContent className="space-y-4">
-            <div className="grid grid-cols-2 gap-4">
+            <div className={`grid gap-4 ${isHorror ? 'grid-cols-2 md:grid-cols-4' : 'grid-cols-2'}`}>
               {attrNames.map(attr => (
-                <div key={attr}><Label>{attr}</Label><Input type="number" defaultValue={10} min={1} max={20} onChange={e => setAttrs(prev => ({ ...prev, [attr]: +e.target.value }))} /></div>
+                <div key={attr}>
+                  <Label>{attr}</Label>
+                  <Input 
+                    type="number" 
+                    defaultValue={isHorror ? 50 : 10} 
+                    min={isHorror ? 1 : 1} 
+                    max={isHorror ? 99 : 20} 
+                    onChange={e => setAttrs(prev => ({ ...prev, [attr]: +e.target.value }))} 
+                  />
+                </div>
               ))}
             </div>
-            <div className="grid grid-cols-2 gap-4">
-              <div><Label>Pontos de Vida</Label><Input type="number" defaultValue={10} /></div>
-              <div><Label>{is5e ? 'Classe de Armadura' : 'Defesa'}</Label><Input type="number" defaultValue={10} /></div>
+            <div className={`grid gap-4 ${isHorror ? 'grid-cols-2' : 'grid-cols-2'}`}>
+              <div><Label>Pontos de Vida</Label><Input type="number" defaultValue={isHorror ? 10 : 10} /></div>
+              {isHorror ? (
+                <div><Label>Sanidade (SAN)</Label><Input type="number" defaultValue={50} /></div>
+              ) : (
+                <div><Label>{is5e ? 'Classe de Armadura' : 'Defesa'}</Label><Input type="number" defaultValue={10} /></div>
+              )}
             </div>
             <div className="flex gap-2">
               <Button variant="outline" onClick={() => setStep(1)} className="flex-1">Voltar</Button>
@@ -73,7 +101,7 @@ export default function CreateCharacterPage() {
             <div className="p-4 bg-muted rounded-lg">
               <p className="text-xl font-heading font-bold">{name || 'Sem nome'}</p>
               <p className="text-muted-foreground">{charClass || 'Sem classe'}</p>
-              <div className="grid grid-cols-3 gap-2 mt-4 text-sm">
+              <div className={`grid gap-2 mt-4 text-sm ${isHorror ? 'grid-cols-4' : 'grid-cols-3'}`}>
                 {Object.entries(attrs).map(([k, v]) => <div key={k}><span className="text-muted-foreground">{k}:</span> <strong>{v}</strong></div>)}
               </div>
             </div>

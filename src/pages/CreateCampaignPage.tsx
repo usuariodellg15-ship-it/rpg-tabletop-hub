@@ -9,7 +9,8 @@ import {
   Upload, 
   Castle, 
   Crosshair,
-  Wand2
+  Wand2,
+  Skull
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -22,11 +23,10 @@ import { toast } from 'sonner';
 
 export default function CreateCampaignPage() {
   const navigate = useNavigate();
-  const { setThemeBySystem, setTheme } = useTheme();
+  const { setThemeBySystem, resetToNeutral } = useTheme();
   const [name, setName] = useState('');
   const [description, setDescription] = useState('');
   const [system, setSystem] = useState<SystemType>('5e');
-  const [coverPreview, setCoverPreview] = useState<string>('');
 
   const handleSystemChange = (value: SystemType) => {
     setSystem(value);
@@ -40,14 +40,30 @@ export default function CreateCampaignPage() {
     }
 
     toast.success('Campanha criada com sucesso!');
-    // In a real app, this would create the campaign
     navigate('/campaigns/campaign-1');
   };
 
-  // Reset theme when leaving
   const handleBack = () => {
-    setTheme('neutral');
+    resetToNeutral();
     navigate('/campaigns');
+  };
+
+  const getCardClass = () => {
+    switch (system) {
+      case '5e': return 'card-ornate';
+      case 'autoral': return 'card-wanted';
+      case 'horror': return 'card-eldritch';
+      default: return '';
+    }
+  };
+
+  const getBadgeClass = () => {
+    switch (system) {
+      case '5e': return 'bg-amber-100 text-amber-800';
+      case 'autoral': return 'bg-orange-950 text-orange-200';
+      case 'horror': return 'bg-purple-900 text-emerald-200';
+      default: return '';
+    }
   };
 
   return (
@@ -61,7 +77,7 @@ export default function CreateCampaignPage() {
           </Button>
           <h1 className="text-3xl font-heading font-bold">Criar Campanha</h1>
           <p className="text-muted-foreground mt-1">
-            Configure sua nova aventura e comece a mestre.
+            Configure sua nova aventura e comece a mestrar.
           </p>
         </div>
 
@@ -109,7 +125,7 @@ export default function CreateCampaignPage() {
               <RadioGroup 
                 value={system} 
                 onValueChange={(v) => handleSystemChange(v as SystemType)}
-                className="grid md:grid-cols-2 gap-4"
+                className="grid md:grid-cols-3 gap-4"
               >
                 <Label
                   htmlFor="system-5e"
@@ -127,7 +143,7 @@ export default function CreateCampaignPage() {
                     <div className="flex-1">
                       <h4 className="font-semibold">5e (SRD)</h4>
                       <p className="text-sm text-muted-foreground">
-                        Fantasia clássica medieval. Ideal para aventuras heroicas.
+                        Fantasia clássica medieval.
                       </p>
                       <div className="mt-2 flex gap-1">
                         <span className="h-4 w-4 rounded-full bg-amber-600" />
@@ -154,12 +170,39 @@ export default function CreateCampaignPage() {
                     <div className="flex-1">
                       <h4 className="font-semibold">Sistema Autoral</h4>
                       <p className="text-sm text-muted-foreground">
-                        Velho Oeste dark. Para histórias sombrias e violentas.
+                        Velho Oeste dark.
                       </p>
                       <div className="mt-2 flex gap-1">
                         <span className="h-4 w-4 rounded-full bg-orange-800" />
                         <span className="h-4 w-4 rounded-full bg-red-900" />
                         <span className="h-4 w-4 rounded-full bg-stone-900" />
+                      </div>
+                    </div>
+                  </div>
+                </Label>
+
+                <Label
+                  htmlFor="system-horror"
+                  className={`cursor-pointer rounded-lg border-2 p-4 transition-all ${
+                    system === 'horror' 
+                      ? 'border-primary bg-primary/5' 
+                      : 'border-border hover:border-primary/50'
+                  }`}
+                >
+                  <RadioGroupItem value="horror" id="system-horror" className="sr-only" />
+                  <div className="flex items-start gap-3">
+                    <div className="h-10 w-10 rounded-lg bg-purple-950 flex items-center justify-center">
+                      <Skull className="h-5 w-5 text-emerald-400" />
+                    </div>
+                    <div className="flex-1">
+                      <h4 className="font-semibold">Horror Cósmico</h4>
+                      <p className="text-sm text-muted-foreground">
+                        Investigação lovecraftiana.
+                      </p>
+                      <div className="mt-2 flex gap-1">
+                        <span className="h-4 w-4 rounded-full bg-purple-800" />
+                        <span className="h-4 w-4 rounded-full bg-indigo-900" />
+                        <span className="h-4 w-4 rounded-full bg-emerald-700" />
                       </div>
                     </div>
                   </div>
@@ -198,7 +241,7 @@ export default function CreateCampaignPage() {
               exit={{ opacity: 0, y: -20 }}
               transition={{ duration: 0.3 }}
             >
-              <Card className={system === '5e' ? 'card-ornate' : 'card-wanted'}>
+              <Card className={getCardClass()}>
                 <CardHeader>
                   <CardTitle className="flex items-center gap-2">
                     <Wand2 className="h-5 w-5" />
@@ -214,11 +257,7 @@ export default function CreateCampaignPage() {
                       {description || 'Descrição da campanha aparecerá aqui...'}
                     </p>
                     <div className="mt-4 flex items-center gap-2">
-                      <span className={`px-2 py-1 rounded text-xs font-medium ${
-                        system === '5e' 
-                          ? 'bg-amber-100 text-amber-800' 
-                          : 'bg-orange-950 text-orange-200'
-                      }`}>
+                      <span className={`px-2 py-1 rounded text-xs font-medium ${getBadgeClass()}`}>
                         {getSystemName(system)}
                       </span>
                     </div>
