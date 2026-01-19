@@ -1,4 +1,4 @@
-@import url('https://fonts.googleapis.com/css2?family=Cinzel:wght@400;500;600;700&family=Crimson+Text:ital,wght@0,400;0,600;0,700;1,400&family=Rye&family=Vollkorn:ital,wght@0,400;0,500;0,600;0,700;1,400&family=Inter:wght@300;400;500;600;700&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Cinzel:wght@400;500;600;700&family=Crimson+Text:ital,wght@0,400;0,600;0,700;1,400&family=Rye&family=Vollkorn:ital,wght@0,400;0,500;0,600;0,700;1,400&family=Inter:wght@300;400;500;600;700&family=IM+Fell+English:ital@0;1&family=Spectral:ital,wght@0,400;0,500;0,600;0,700;1,400&display=swap');
 
 @tailwind base;
 @tailwind components;
@@ -6,7 +6,7 @@
 
 /* ============================================
    MesaHub Design System
-   Themes: Neutral, Medieval, Wild West Dark
+   Themes: Neutral, Medieval, Wild West Dark, Cosmic Horror
    ============================================ */
 
 @layer base {
@@ -161,6 +161,54 @@
     --font-body: 'Vollkorn', serif;
   }
 
+  /* ========== COSMIC HORROR THEME ========== */
+  .theme-cosmic {
+    --background: 240 20% 8%;
+    --foreground: 220 20% 88%;
+
+    --card: 240 22% 12%;
+    --card-foreground: 220 20% 88%;
+
+    --popover: 240 22% 10%;
+    --popover-foreground: 220 20% 88%;
+
+    --primary: 260 60% 50%;
+    --primary-foreground: 240 20% 95%;
+
+    --secondary: 240 18% 18%;
+    --secondary-foreground: 220 20% 82%;
+
+    --muted: 240 15% 15%;
+    --muted-foreground: 220 15% 50%;
+
+    --accent: 160 50% 40%;
+    --accent-foreground: 220 20% 95%;
+
+    --destructive: 0 65% 40%;
+    --destructive-foreground: 220 20% 95%;
+
+    --border: 240 18% 22%;
+    --input: 240 18% 18%;
+    --ring: 260 60% 50%;
+
+    --theme-gold: 160 50% 40%;
+    --theme-parchment: 220 15% 80%;
+    --theme-rust: 260 60% 50%;
+    --theme-sepia: 240 20% 8%;
+
+    --sidebar-background: 240 22% 10%;
+    --sidebar-foreground: 220 20% 82%;
+    --sidebar-primary: 260 60% 50%;
+    --sidebar-primary-foreground: 240 20% 95%;
+    --sidebar-accent: 240 18% 16%;
+    --sidebar-accent-foreground: 220 20% 82%;
+    --sidebar-border: 240 18% 20%;
+    --sidebar-ring: 260 60% 50%;
+
+    --font-heading: 'IM Fell English', serif;
+    --font-body: 'Spectral', serif;
+  }
+
   /* ========== DARK MODE (Neutral) ========== */
   .dark {
     --background: 220 16% 10%;
@@ -303,6 +351,39 @@
   .badge-wildwest {
     @apply bg-gradient-to-r from-orange-800 to-red-900 text-amber-100 font-medium;
     font-family: var(--font-heading);
+  }
+
+  .badge-cosmic {
+    @apply bg-gradient-to-r from-purple-800 to-indigo-900 text-emerald-200 font-medium;
+    font-family: var(--font-heading);
+  }
+
+  /* Cosmic Horror decorative elements */
+  .theme-cosmic .card-eldritch {
+    @apply relative;
+    background-image: 
+      radial-gradient(ellipse at top, hsl(260 60% 50% / 0.08) 0%, transparent 50%),
+      radial-gradient(ellipse at bottom, hsl(160 50% 40% / 0.05) 0%, transparent 50%);
+  }
+
+  .theme-cosmic .card-eldritch::before {
+    content: '';
+    @apply absolute inset-0 pointer-events-none rounded-lg;
+    border: 1px solid hsl(260 60% 50% / 0.2);
+    background: url("data:image/svg+xml,%3Csvg width='60' height='60' viewBox='0 0 60 60' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M30 0C35 15 45 25 60 30C45 35 35 45 30 60C25 45 15 35 0 30C15 25 25 15 30 0Z' fill='%237c3aed11'/%3E%3C/svg%3E") repeat;
+    background-size: 60px 60px;
+  }
+
+  /* Tentacle animation for cosmic */
+  @keyframes tentacle-wave {
+    0%, 100% { transform: translateX(0) rotate(0deg); }
+    25% { transform: translateX(-2px) rotate(-1deg); }
+    50% { transform: translateX(0) rotate(0deg); }
+    75% { transform: translateX(2px) rotate(1deg); }
+  }
+
+  .animate-tentacle {
+    animation: tentacle-wave 4s ease-in-out infinite;
   }
 }
 

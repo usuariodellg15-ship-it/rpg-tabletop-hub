@@ -2,8 +2,8 @@
 // MesaHub Mock Data
 // ============================================
 
-export type SystemType = '5e' | 'autoral';
-export type ThemeType = 'neutral' | 'medieval' | 'wildwest';
+export type SystemType = '5e' | 'autoral' | 'horror';
+export type ThemeType = 'neutral' | 'medieval' | 'wildwest' | 'cosmic';
 export type UserRole = 'player' | 'gm' | 'admin';
 export type CampaignRole = 'gm' | 'player';
 export type CampaignStatus = 'active' | 'closed' | 'paused';
@@ -67,6 +67,17 @@ export interface Character {
   intelecto?: number;
   vontade?: number;
   presenca?: number;
+  // Horror attributes
+  horrorStr?: number;
+  horrorDex?: number;
+  horrorCon?: number;
+  horrorInt?: number;
+  horrorEdu?: number;
+  horrorPow?: number;
+  horrorApp?: number;
+  horrorSiz?: number;
+  sanity?: number;
+  maxSanity?: number;
   // Common
   hp: number;
   maxHp: number;
@@ -77,6 +88,25 @@ export interface Character {
   notes: string;
   lastEditedBy?: string;
   lastEditedAt?: string;
+}
+
+export interface Mission {
+  id: string;
+  campaignId: string;
+  title: string;
+  description: string;
+  status: MissionStatus;
+  notes: string;
+  objectives?: string[];
+  rewards?: string;
+  createdAt: string;
+}
+
+export interface CombatStats {
+  oddsDealt: number;
+  damageDealt: number;
+  damageReceived: number;
+  healingDone: number;
 }
 
 export interface InventoryItem {
@@ -138,15 +168,7 @@ export interface TimelineEvent {
   attachments: string[];
 }
 
-export interface Mission {
-  id: string;
-  campaignId: string;
-  title: string;
-  description: string;
-  status: MissionStatus;
-  notes: string;
-  createdAt: string;
-}
+// Mission interface moved above to avoid duplicate
 
 export interface Encounter {
   id: string;
@@ -271,6 +293,19 @@ export const campaigns: Campaign[] = [
     createdAt: '2022-10-01',
     lastActivity: '2023-08-20',
   },
+  {
+    id: 'campaign-4',
+    name: 'O Chamado de Cthulhu',
+    description: 'Investigadores enfrentam horrores indescritíveis enquanto desvendam cultos e segredos proibidos em Arkham, 1925. A sanidade é um luxo que poucos podem manter.',
+    system: 'horror',
+    status: 'active',
+    coverImage: 'https://images.unsplash.com/photo-1509248961725-aec71f47838f?w=800',
+    code: 'CTHULHU',
+    isPublic: true,
+    gmId: 'user-1',
+    createdAt: '2024-01-01',
+    lastActivity: '2024-01-15',
+  },
 ];
 
 export const campaignMembers: CampaignMember[] = [
@@ -286,6 +321,10 @@ export const campaignMembers: CampaignMember[] = [
   // Campaign 3 - Ravenloft
   { id: 'member-8', campaignId: 'campaign-3', userId: 'user-4', role: 'gm', status: 'approved', joinedAt: '2022-10-01' },
   { id: 'member-9', campaignId: 'campaign-3', userId: 'user-2', role: 'player', status: 'approved', joinedAt: '2022-10-02' },
+  // Campaign 4 - Cthulhu
+  { id: 'member-10', campaignId: 'campaign-4', userId: 'user-1', role: 'gm', status: 'approved', joinedAt: '2024-01-01' },
+  { id: 'member-11', campaignId: 'campaign-4', userId: 'user-2', role: 'player', status: 'approved', joinedAt: '2024-01-02' },
+  { id: 'member-12', campaignId: 'campaign-4', userId: 'user-4', role: 'player', status: 'approved', joinedAt: '2024-01-03' },
 ];
 
 export const characters: Character[] = [
@@ -404,6 +443,73 @@ export const characters: Character[] = [
       { id: 'ab-8', name: 'Expulsar Demônios', description: 'Força criaturas malignas a fugirem.' },
     ],
     notes: 'Uma freira que abandonou o convento para combater o mal nas terras selvagens.',
+  },
+  // Campaign 4 characters (Horror)
+  {
+    id: 'char-5',
+    campaignId: 'campaign-4',
+    userId: 'user-2',
+    name: 'Dr. Henry Armitage',
+    portrait: 'https://api.dicebear.com/7.x/adventurer/svg?seed=armitage',
+    level: 1,
+    class: 'Professor de Literatura Oculta',
+    horrorStr: 45,
+    horrorDex: 50,
+    horrorCon: 55,
+    horrorInt: 80,
+    horrorEdu: 85,
+    horrorPow: 65,
+    horrorApp: 50,
+    horrorSiz: 60,
+    sanity: 58,
+    maxSanity: 65,
+    hp: 11,
+    maxHp: 12,
+    ac: 0,
+    conditions: [],
+    inventory: [
+      { id: 'inv-11', name: 'Necronomicon (cópia)', quantity: 1, description: 'Livro proibido. -1d10 SAN ao ler.' },
+      { id: 'inv-12', name: 'Lanterna', quantity: 1, description: 'Ilumina a escuridão.' },
+      { id: 'inv-13', name: 'Revólver .32', quantity: 1, description: '1d8 dano.' },
+    ],
+    abilities: [
+      { id: 'ab-9', name: 'Conhecimento Arcano', description: 'Pode identificar entidades e rituais.', uses: 1, maxUses: 1 },
+      { id: 'ab-10', name: 'Biblioteca', description: 'Acesso à biblioteca da Universidade Miskatonic.' },
+    ],
+    notes: 'Professor da Universidade Miskatonic. Já viu coisas demais.',
+  },
+  {
+    id: 'char-6',
+    campaignId: 'campaign-4',
+    userId: 'user-4',
+    name: 'Margaret "Maggie" O\'Brien',
+    portrait: 'https://api.dicebear.com/7.x/adventurer/svg?seed=maggie',
+    level: 1,
+    class: 'Jornalista Investigativa',
+    horrorStr: 40,
+    horrorDex: 65,
+    horrorCon: 50,
+    horrorInt: 70,
+    horrorEdu: 60,
+    horrorPow: 55,
+    horrorApp: 65,
+    horrorSiz: 45,
+    sanity: 50,
+    maxSanity: 55,
+    hp: 9,
+    maxHp: 10,
+    ac: 0,
+    conditions: ['paranoia leve'],
+    inventory: [
+      { id: 'inv-14', name: 'Câmera Fotográfica', quantity: 1, description: 'Para registrar evidências.' },
+      { id: 'inv-15', name: 'Bloco de Notas', quantity: 1, description: 'Cheio de anotações suspeitas.' },
+      { id: 'inv-16', name: 'Faca de Bolso', quantity: 1, description: '1d4 dano.' },
+    ],
+    abilities: [
+      { id: 'ab-11', name: 'Contatos na Imprensa', description: 'Pode conseguir informações.' },
+      { id: 'ab-12', name: 'Faro para Notícias', description: '+20% em Spot Hidden.' },
+    ],
+    notes: 'Repórter do Arkham Advertiser. Cética, mas curiosa demais.',
   },
 ];
 
@@ -645,6 +751,8 @@ export const getSystemTheme = (system: SystemType): ThemeType => {
       return 'medieval';
     case 'autoral':
       return 'wildwest';
+    case 'horror':
+      return 'cosmic';
     default:
       return 'neutral';
   }
@@ -656,6 +764,8 @@ export const getSystemName = (system: SystemType): string => {
       return '5e (SRD)';
     case 'autoral':
       return 'Sistema Autoral';
+    case 'horror':
+      return 'Horror Cósmico';
     default:
       return 'Sistema';
   }
@@ -697,4 +807,22 @@ export const getEventTypeName = (type: EventType): string => {
     default:
       return 'Evento';
   }
+};
+
+export const eventTypes: { value: EventType; label: string }[] = [
+  { value: 'boss_fight', label: 'Boss Fight' },
+  { value: 'death', label: 'Morte' },
+  { value: 'mission', label: 'Missão' },
+  { value: 'discovery', label: 'Descoberta' },
+  { value: 'npc_meeting', label: 'Encontro com NPC' },
+  { value: 'level_up', label: 'Subida de Nível' },
+];
+
+// Combat stats mock for dashboard
+export const combatStats: Record<string, CombatStats> = {
+  'char-1': { oddsDealt: 15, damageDealt: 245, damageReceived: 89, healingDone: 120 },
+  'char-2': { oddsDealt: 12, damageDealt: 156, damageReceived: 45, healingDone: 65 },
+  'char-3': { oddsDealt: 18, damageDealt: 312, damageReceived: 78, healingDone: 0 },
+  'char-4': { oddsDealt: 8, damageDealt: 45, damageReceived: 112, healingDone: 180 },
+  'char-5': { oddsDealt: 10, damageDealt: 178, damageReceived: 95, healingDone: 25 },
 };

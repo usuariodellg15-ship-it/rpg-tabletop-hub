@@ -36,6 +36,8 @@ export function Header() {
         return <Castle className="h-4 w-4 text-theme-gold" />;
       case 'wildwest':
         return <Crosshair className="h-4 w-4 text-theme-rust" />;
+      case 'cosmic':
+        return <span className="text-purple-400">👁</span>;
       default:
         return null;
     }
@@ -47,6 +49,8 @@ export function Header() {
         return <Badge variant="secondary" className="badge-medieval text-xs">Medieval</Badge>;
       case 'wildwest':
         return <Badge variant="secondary" className="badge-wildwest text-xs">Velho Oeste</Badge>;
+      case 'cosmic':
+        return <Badge variant="secondary" className="badge-cosmic text-xs">Horror Cósmico</Badge>;
       default:
         return null;
     }

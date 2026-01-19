@@ -5,6 +5,7 @@ interface ThemeContextType {
   theme: ThemeType;
   setTheme: (theme: ThemeType) => void;
   setThemeBySystem: (system: SystemType) => void;
+  resetToNeutral: () => void;
 }
 
 const ThemeContext = createContext<ThemeContextType | undefined>(undefined);
@@ -14,13 +15,15 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     // Remove all theme classes
-    document.documentElement.classList.remove('theme-medieval', 'theme-wildwest');
+    document.documentElement.classList.remove('theme-medieval', 'theme-wildwest', 'theme-cosmic');
     
     // Add the current theme class
     if (theme === 'medieval') {
       document.documentElement.classList.add('theme-medieval');
     } else if (theme === 'wildwest') {
       document.documentElement.classList.add('theme-wildwest');
+    } else if (theme === 'cosmic') {
+      document.documentElement.classList.add('theme-cosmic');
     }
   }, [theme]);
 
@@ -28,8 +31,12 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
     setTheme(getSystemTheme(system));
   };
 
+  const resetToNeutral = () => {
+    setTheme('neutral');
+  };
+
   return (
-    <ThemeContext.Provider value={{ theme, setTheme, setThemeBySystem }}>
+    <ThemeContext.Provider value={{ theme, setTheme, setThemeBySystem, resetToNeutral }}>
       {children}
     </ThemeContext.Provider>
   );
