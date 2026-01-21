@@ -1,6 +1,7 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { MainLayout } from '@/components/layout/MainLayout';
+import { useTheme } from '@/contexts/ThemeContext';
 import { homebrews, users, getSystemName } from '@/data/mockData';
 import { Plus, Search, Filter, Star } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -10,6 +11,11 @@ import { Badge } from '@/components/ui/badge';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 
 export default function HomebrewsPage() {
+  const { resetToNeutral } = useTheme();
+  
+  useEffect(() => {
+    resetToNeutral();
+  }, [resetToNeutral]);
   const [search, setSearch] = useState('');
   const [typeFilter, setTypeFilter] = useState('all');
   const [systemFilter, setSystemFilter] = useState('all');
