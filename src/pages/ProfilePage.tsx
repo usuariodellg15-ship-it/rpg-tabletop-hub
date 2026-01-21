@@ -1,5 +1,7 @@
+import { useEffect } from 'react';
 import { MainLayout } from '@/components/layout/MainLayout';
 import { useAuth } from '@/contexts/AuthContext';
+import { useTheme } from '@/contexts/ThemeContext';
 import { campaigns, campaignMembers, homebrews, getSystemName } from '@/data/mockData';
 import { User, Settings, Crown, Gamepad2, Shield, Eye, EyeOff } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -10,6 +12,11 @@ import { Link } from 'react-router-dom';
 
 export default function ProfilePage() {
   const { user } = useAuth();
+  const { resetToNeutral } = useTheme();
+  
+  useEffect(() => {
+    resetToNeutral();
+  }, [resetToNeutral]);
   if (!user) return null;
 
   const userMemberships = campaignMembers.filter(m => m.userId === user.id && m.status === 'approved');

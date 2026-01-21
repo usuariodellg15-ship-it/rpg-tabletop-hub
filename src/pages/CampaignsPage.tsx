@@ -1,7 +1,8 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { MainLayout } from '@/components/layout/MainLayout';
 import { useAuth } from '@/contexts/AuthContext';
+import { useTheme } from '@/contexts/ThemeContext';
 import { 
   campaigns, 
   campaignMembers, 
@@ -35,8 +36,14 @@ import { motion } from 'framer-motion';
 
 export default function CampaignsPage() {
   const { user } = useAuth();
+  const { resetToNeutral } = useTheme();
   const [search, setSearch] = useState('');
   const [systemFilter, setSystemFilter] = useState<string>('all');
+
+  // Reset to neutral theme when on this page
+  useEffect(() => {
+    resetToNeutral();
+  }, [resetToNeutral]);
 
   const userCampaigns = useMemo(() => {
     if (!user) return [];
