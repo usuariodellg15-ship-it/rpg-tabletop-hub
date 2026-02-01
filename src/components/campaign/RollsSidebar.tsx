@@ -1,28 +1,30 @@
-import { DiceRoll, users } from '@/data/mockData';
-import { Dice6, User } from 'lucide-react';
+import { Dice6 } from 'lucide-react';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { motion, AnimatePresence } from 'framer-motion';
+
+interface DiceRoll {
+  id: string;
+  campaignId: string;
+  userId: string;
+  formula: string;
+  result: number;
+  details: string;
+  timestamp: string;
+}
 
 interface RollsSidebarProps {
   rolls: DiceRoll[];
   className?: string;
+  profiles?: Record<string, { name: string; avatar_url?: string | null }>;
 }
 
-export function RollsSidebar({ rolls, className = '' }: RollsSidebarProps) {
+export function RollsSidebar({ rolls, className = '', profiles = {} }: RollsSidebarProps) {
   const getUserName = (userId: string) => {
-    return users.find(u => u.id === userId)?.name || 'Desconhecido';
+    return profiles[userId]?.name || 'Jogador';
   };
 
   const getUserAvatar = (userId: string) => {
-    return users.find(u => u.id === userId)?.avatar;
-  };
-
-  const isCritical = (result: number, formula: string) => {
-    if (formula.includes('d20')) {
-      const diceRoll = parseInt(formula.split('+')[0]?.replace('1d20', '') || '0');
-      return result - diceRoll >= 20 || result - diceRoll <= 1;
-    }
-    return false;
+    return profiles[userId]?.avatar_url || undefined;
   };
 
   return (
@@ -49,15 +51,21 @@ export function RollsSidebar({ rolls, className = '' }: RollsSidebarProps) {
                   exit={{ opacity: 0, scale: 0.8 }}
                   transition={{ delay: index * 0.05 }}
                   className={`p-3 rounded-lg border bg-background ${
-                    roll.details.includes('Crítico') ? 'border-destructive bg-destructive/5' : ''
+                    roll.details?.includes('Crítico') ? 'border-destructive bg-destructive/5' : ''
                   }`}
                 >
                   <div className="flex items-center gap-2 mb-2">
-                    <img 
-                      src={getUserAvatar(roll.userId)} 
-                      alt="" 
-                      className="h-5 w-5 rounded-full"
-                    />
+                    {getUserAvatar(roll.userId) ? (
+                      <img 
+                        src={getUserAvatar(roll.userId)} 
+                        alt="" 
+                        className="h-5 w-5 rounded-full"
+                      />
+                    ) : (
+                      <div className="h-5 w-5 rounded-full bg-muted flex items-center justify-center text-xs">
+                        {getUserName(roll.userId)?.[0] || '?'}
+                      </div>
+                    )}
                     <span className="text-xs text-muted-foreground truncate">
                       {getUserName(roll.userId)}
                     </span>
@@ -67,14 +75,16 @@ export function RollsSidebar({ rolls, className = '' }: RollsSidebarProps) {
                       {roll.formula}
                     </span>
                     <span className={`text-xl font-bold font-heading ${
-                      roll.details.includes('Crítico') ? 'text-destructive' : 'text-primary'
+                      roll.details?.includes('Crítico') ? 'text-destructive' : 'text-primary'
                     }`}>
                       {roll.result}
                     </span>
                   </div>
-                  <p className="text-xs text-muted-foreground mt-1">
-                    {roll.details}
-                  </p>
+                  {roll.details && (
+                    <p className="text-xs text-muted-foreground mt-1">
+                      {roll.details}
+                    </p>
+                  )}
                 </motion.div>
               ))}
             </div>

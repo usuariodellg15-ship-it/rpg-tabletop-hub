@@ -25,8 +25,21 @@ import { DndContext, closestCenter, KeyboardSensor, PointerSensor, useSensor, us
 import { arrayMove, SortableContext, sortableKeyboardCoordinates, useSortable, verticalListSortingStrategy } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
 import { toast } from 'sonner';
-import { EncounterCreature, SystemType, users, Character } from '@/data/mockData';
+import { EncounterCreature, SystemType } from '@/data/mockData';
 import { Creature, creatures as creatureCatalog } from '@/data/mockCreatures';
+
+// Simplified character interface for combat tab
+interface CombatCharacter {
+  id: string;
+  campaignId: string;
+  userId: string;
+  name: string;
+  class: string;
+  level: number;
+  hp: number;
+  maxHp: number;
+  ac: number;
+}
 
 interface SortableCreatureProps {
   creature: EncounterCreature;
@@ -34,7 +47,7 @@ interface SortableCreatureProps {
   onNameChange: (id: string, name: string) => void;
   onViewCreature: (creatureId: string) => void;
   linkedCreature?: Creature;
-  characters: Character[];
+  characters: CombatCharacter[];
 }
 
 function SortableCreature({ creature, onInitiativeChange, onNameChange, onViewCreature, linkedCreature, characters }: SortableCreatureProps) {
@@ -52,10 +65,7 @@ function SortableCreature({ creature, onInitiativeChange, onNameChange, onViewCr
   const getPlayerName = () => {
     if (creature.isPlayer && creature.characterId) {
       const char = characters.find(c => c.id === creature.characterId);
-      if (char) {
-        const user = users.find(u => u.id === char.userId);
-        return user?.name;
-      }
+      return char?.name || null;
     }
     return null;
   };
@@ -124,7 +134,7 @@ interface GMCombatTabProps {
   avgLevelRounded: number;
   creatures: EncounterCreature[];
   setCreatures: React.Dispatch<React.SetStateAction<EncounterCreature[]>>;
-  characters: Character[];
+  characters: CombatCharacter[];
 }
 
 export function GMCombatTab({ 

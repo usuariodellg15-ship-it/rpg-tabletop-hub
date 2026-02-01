@@ -1,5 +1,4 @@
 import { useState, useMemo } from 'react';
-import { Character, Mission, users } from '@/data/mockData';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
@@ -17,9 +16,31 @@ export interface CombatStatEvent {
   relatedRollId?: string;
 }
 
+// Simplified character interface for dashboard
+interface DashboardCharacter {
+  id: string;
+  campaignId: string;
+  userId: string;
+  name: string;
+  class: string;
+  level: number;
+  hp: number;
+  maxHp: number;
+  ac: number;
+}
+
+// Simplified mission interface for dashboard
+interface DashboardMission {
+  id: string;
+  campaignId: string;
+  title: string;
+  description: string;
+  status: 'active' | 'completed';
+}
+
 interface GMDashboardTabProps {
-  characters: Character[];
-  missions: Mission[];
+  characters: DashboardCharacter[];
+  missions: DashboardMission[];
   statEvents: CombatStatEvent[];
 }
 
@@ -85,7 +106,7 @@ export function GMDashboardTab({ characters, missions, statEvents }: GMDashboard
 
   // Rankings
   const topDamageDealer = useMemo(() => {
-    let top: { char: Character; total: number } | null = null;
+    let top: { char: DashboardCharacter; total: number } | null = null;
     characters.forEach(c => {
       const total = characterStats[c.id]?.damageDealt || 0;
       if (!top || total > top.total) {
@@ -96,7 +117,7 @@ export function GMDashboardTab({ characters, missions, statEvents }: GMDashboard
   }, [characters, characterStats]);
 
   const topHealer = useMemo(() => {
-    let top: { char: Character; total: number } | null = null;
+    let top: { char: DashboardCharacter; total: number } | null = null;
     characters.forEach(c => {
       const total = characterStats[c.id]?.healingDone || 0;
       if (!top || total > top.total) {
@@ -107,7 +128,7 @@ export function GMDashboardTab({ characters, missions, statEvents }: GMDashboard
   }, [characters, characterStats]);
 
   const mostDamageTaken = useMemo(() => {
-    let top: { char: Character; total: number } | null = null;
+    let top: { char: DashboardCharacter; total: number } | null = null;
     characters.forEach(c => {
       const total = characterStats[c.id]?.damageTaken || 0;
       if (!top || total > top.total) {
@@ -119,12 +140,6 @@ export function GMDashboardTab({ characters, missions, statEvents }: GMDashboard
 
   // Active missions
   const activeMissions = missions.filter(m => m.status === 'active');
-
-  // Get user name by character
-  const getUserName = (userId: string) => {
-    const user = users.find(u => u.id === userId);
-    return user?.name || 'Desconhecido';
-  };
 
   return (
     <div className="space-y-6">
@@ -221,15 +236,15 @@ export function GMDashboardTab({ characters, missions, statEvents }: GMDashboard
               {charactersInDeathZone.map(c => {
                 const hpPercent = (c.hp / c.maxHp) * 100;
                 return (
-                  <div key={c.id} className="flex items-center justify-between p-2 rounded-md bg-destructive/10">
-                    <div>
-                      <p className="font-semibold">{c.name}</p>
-                      <p className="text-xs text-muted-foreground">
-                        Controlado por: {getUserName(c.userId)}
-                      </p>
-                    </div>
-                    <div className="flex items-center gap-3">
-                      <Progress value={hpPercent} className="w-24 h-2" />
+                    <div key={c.id} className="flex items-center justify-between p-2 rounded-md bg-destructive/10">
+                      <div>
+                        <p className="font-semibold">{c.name}</p>
+                        <p className="text-xs text-muted-foreground">
+                          {c.class} Nv.{c.level}
+                        </p>
+                      </div>
+                      <div className="flex items-center gap-3">
+                        <Progress value={hpPercent} className="w-24 h-2" />
                       <Badge variant="destructive">{c.hp}/{c.maxHp}</Badge>
                     </div>
                   </div>
@@ -308,7 +323,7 @@ export function GMDashboardTab({ characters, missions, statEvents }: GMDashboard
                   <div>
                     <p className="font-semibold">{c.name}</p>
                     <p className="text-xs text-muted-foreground">
-                      {c.class} Nv.{c.level} • Controlado por: {getUserName(c.userId)}
+                      {c.class} Nv.{c.level}
                     </p>
                   </div>
                   <div className="flex gap-6 text-sm">
