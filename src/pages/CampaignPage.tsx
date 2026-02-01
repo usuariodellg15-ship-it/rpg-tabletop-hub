@@ -7,7 +7,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import type { Database } from '@/integrations/supabase/types';
-import { Shield, Users, Scroll, Wand2, Eye, Crown, UserPlus, Check, X, Loader2, Copy, Gamepad2 } from 'lucide-react';
+import { Shield, Users, Scroll, Wand2, Eye, Crown, UserPlus, Check, X, Loader2, Copy, Gamepad2, AlertTriangle } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -185,7 +185,11 @@ export default function CampaignPage() {
     return (
       <MainLayout>
         <div className="container py-8 text-center">
-          <h1 className="text-2xl font-bold mb-4">Campanha não encontrada</h1>
+          <AlertTriangle className="h-12 w-12 mx-auto text-destructive mb-4" />
+          <h1 className="text-2xl font-bold mb-2">Campanha não encontrada</h1>
+          <p className="text-muted-foreground mb-4">
+            A campanha pode não existir ou você não tem permissão para acessá-la.
+          </p>
           <Link to="/campaigns">
             <Button>Voltar às Campanhas</Button>
           </Link>

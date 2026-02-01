@@ -2,22 +2,10 @@ import { useEffect, useState, useMemo } from 'react';
 import { useParams, Link, useNavigate } from 'react-router-dom';
 import { MainLayout } from '@/components/layout/MainLayout';
 import { useTheme } from '@/contexts/ThemeContext';
-import { 
-  campaigns, 
-  characters, 
-  diceRolls, 
-  timelineEvents, 
-  missions as mockMissions, 
-  encounters, 
-  users, 
-  getEventIcon, 
-  getEventTypeName, 
-  EncounterCreature,
-  TimelineEvent,
-  Mission,
-  EventType,
-  eventTypes,
-} from '@/data/mockData';
+import { useAuth } from '@/contexts/AuthContext';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { supabase } from '@/integrations/supabase/client';
+import type { Database } from '@/integrations/supabase/types';
 import { 
   ArrowLeft, 
   Shield, 
@@ -29,6 +17,9 @@ import {
   Plus, 
   Edit, 
   LayoutDashboard,
+  Loader2,
+  AlertTriangle,
+  Lock,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
@@ -39,171 +30,337 @@ import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter } from '@/components/ui/dialog';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { RollsSidebar } from '@/components/campaign/RollsSidebar';
 import { toast } from 'sonner';
 
-// Import new tab components
+// Import tab components  
 import { GMDashboardTab, CombatStatEvent } from '@/components/gm/GMDashboardTab';
 import { GMCombatTab } from '@/components/gm/GMCombatTab';
 import { GMNotesTab, GMNote } from '@/components/gm/GMNotesTab';
 import { GMMissionsTab } from '@/components/gm/GMMissionsTab';
+import { RollsSidebar } from '@/components/campaign/RollsSidebar';
 
-const STAT_EVENTS_KEY = 'mesahub_stat_events';
+// Types
+type Campaign = Database['public']['Tables']['campaigns']['Row'];
+type Character = Database['public']['Tables']['characters']['Row'];
+type DiceRoll = Database['public']['Tables']['dice_rolls']['Row'];
+type TimelineEvent = Database['public']['Tables']['timeline_events']['Row'];
+type Mission = Database['public']['Tables']['missions']['Row'];
+type Profile = Database['public']['Tables']['profiles']['Row'];
+type CombatStatEventDB = Database['public']['Tables']['combat_stat_events']['Row'];
 
-// Generate initial mock stat events from existing combatStats
-function generateInitialStatEvents(campaignId: string): CombatStatEvent[] {
-  const chars = characters.filter(c => c.campaignId === campaignId);
-  const events: CombatStatEvent[] = [];
-  
-  chars.forEach(char => {
-    // Add some mock damage events
-    for (let i = 0; i < 3; i++) {
-      events.push({
-        id: `stat-dmg-${char.id}-${i}`,
-        campaignId,
-        characterId: char.id,
-        type: 'DAMAGE_DEALT',
-        amount: Math.floor(Math.random() * 30) + 10,
-        timestamp: new Date(Date.now() - Math.random() * 7 * 24 * 60 * 60 * 1000).toISOString(),
-      });
-    }
-    // Add some mock healing events
-    for (let i = 0; i < 2; i++) {
-      events.push({
-        id: `stat-heal-${char.id}-${i}`,
-        campaignId,
-        characterId: char.id,
-        type: 'HEALING_DONE',
-        amount: Math.floor(Math.random() * 20) + 5,
-        timestamp: new Date(Date.now() - Math.random() * 7 * 24 * 60 * 60 * 1000).toISOString(),
-      });
-    }
-    // Add some damage taken events
-    for (let i = 0; i < 2; i++) {
-      events.push({
-        id: `stat-taken-${char.id}-${i}`,
-        campaignId,
-        characterId: char.id,
-        type: 'DAMAGE_TAKEN',
-        amount: Math.floor(Math.random() * 25) + 8,
-        timestamp: new Date(Date.now() - Math.random() * 7 * 24 * 60 * 60 * 1000).toISOString(),
-      });
-    }
-  });
+// Event types for timeline
+const eventTypes = [
+  { value: 'discovery', label: 'Descoberta' },
+  { value: 'combat', label: 'Combate' },
+  { value: 'npc', label: 'Encontro com NPC' },
+  { value: 'milestone', label: 'Marco' },
+  { value: 'rest', label: 'Descanso' },
+  { value: 'travel', label: 'Viagem' },
+] as const;
 
-  return events;
+type EventType = typeof eventTypes[number]['value'];
+
+function getEventIcon(type: string) {
+  switch (type) {
+    case 'discovery': return '🔍';
+    case 'combat': return '⚔️';
+    case 'npc': return '👤';
+    case 'milestone': return '🏆';
+    case 'rest': return '🏕️';
+    case 'travel': return '🗺️';
+    default: return '📌';
+  }
+}
+
+function getEventTypeName(type: string) {
+  return eventTypes.find(t => t.value === type)?.label || 'Evento';
 }
 
 export default function GMShieldPage() {
   const { id } = useParams();
   const navigate = useNavigate();
+  const { user } = useAuth();
   const { setThemeBySystem } = useTheme();
-  const campaign = campaigns.find(c => c.id === id);
-  const chars = characters.filter(c => c.campaignId === id);
-  const rolls = diceRolls.filter(r => r.campaignId === id);
-  const campaignEvents = timelineEvents.filter(e => e.campaignId === id);
-  const [events, setEvents] = useState<TimelineEvent[]>(campaignEvents);
-  const campaignMissionsData = mockMissions.filter(m => m.campaignId === id);
-  const [missionsList, setMissionsList] = useState<Mission[]>(campaignMissionsData);
-  const encounter = encounters.find(e => e.campaignId === id && e.isActive);
-  
-  const [creatures, setCreatures] = useState<EncounterCreature[]>(encounter?.creatures || []);
+  const queryClient = useQueryClient();
+
   const [isAddEventOpen, setIsAddEventOpen] = useState(false);
-  const [gmNotes, setGmNotes] = useState<GMNote[]>([]);
-  
-  // Stat events for dashboard
-  const [statEvents, setStatEvents] = useState<CombatStatEvent[]>([]);
-  
-  // New event form state
   const [newEventTitle, setNewEventTitle] = useState('');
   const [newEventDesc, setNewEventDesc] = useState('');
   const [newEventType, setNewEventType] = useState<EventType>('discovery');
-  const [newEventTags, setNewEventTags] = useState('');
   const [newEventDate, setNewEventDate] = useState('');
 
-  // Load stat events from localStorage
-  useEffect(() => {
-    if (!id) return;
-    
-    const stored = localStorage.getItem(STAT_EVENTS_KEY);
-    if (stored) {
-      try {
-        const allEvents: CombatStatEvent[] = JSON.parse(stored);
-        const campaignEvents = allEvents.filter(e => e.campaignId === id);
-        if (campaignEvents.length > 0) {
-          setStatEvents(campaignEvents);
-        } else {
-          // Generate initial mock data
-          const initialEvents = generateInitialStatEvents(id);
-          setStatEvents(initialEvents);
-        }
-      } catch (e) {
-        const initialEvents = generateInitialStatEvents(id);
-        setStatEvents(initialEvents);
-      }
-    } else {
-      const initialEvents = generateInitialStatEvents(id);
-      setStatEvents(initialEvents);
-    }
-  }, [id]);
+  // Fetch campaign
+  const { data: campaign, isLoading: loadingCampaign, error: campaignError } = useQuery({
+    queryKey: ['campaign', id],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('campaigns')
+        .select('*')
+        .eq('id', id)
+        .single();
+      if (error) throw error;
+      return data as Campaign;
+    },
+    enabled: !!id && !!user,
+  });
 
-  // Save stat events to localStorage
-  useEffect(() => {
-    if (!id || statEvents.length === 0) return;
-    
-    const stored = localStorage.getItem(STAT_EVENTS_KEY);
-    let allEvents: CombatStatEvent[] = [];
-    
-    if (stored) {
-      try {
-        allEvents = JSON.parse(stored);
-      } catch (e) {}
-    }
+  // Check if current user is GM
+  const isGM = campaign?.gm_id === user?.id;
 
-    allEvents = allEvents.filter(e => e.campaignId !== id);
-    allEvents = [...allEvents, ...statEvents];
-    
-    localStorage.setItem(STAT_EVENTS_KEY, JSON.stringify(allEvents));
-  }, [statEvents, id]);
+  // Fetch characters
+  const { data: characters = [] } = useQuery({
+    queryKey: ['campaign-characters', id],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('characters')
+        .select('*')
+        .eq('campaign_id', id);
+      if (error) throw error;
+      return data as Character[];
+    },
+    enabled: !!id && isGM,
+  });
+
+  // Fetch dice rolls
+  const { data: diceRolls = [] } = useQuery({
+    queryKey: ['campaign-dice-rolls', id],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('dice_rolls')
+        .select('*')
+        .eq('campaign_id', id)
+        .order('created_at', { ascending: false })
+        .limit(50);
+      if (error) throw error;
+      return data as DiceRoll[];
+    },
+    enabled: !!id && isGM,
+  });
+
+  // Fetch timeline events
+  const { data: timelineEvents = [] } = useQuery({
+    queryKey: ['campaign-timeline', id],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('timeline_events')
+        .select('*')
+        .eq('campaign_id', id)
+        .order('created_at', { ascending: false });
+      if (error) throw error;
+      return data as TimelineEvent[];
+    },
+    enabled: !!id && isGM,
+  });
+
+  // Fetch missions
+  const { data: missions = [] } = useQuery({
+    queryKey: ['campaign-missions', id],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('missions')
+        .select('*')
+        .eq('campaign_id', id)
+        .order('created_at', { ascending: false });
+      if (error) throw error;
+      return data as Mission[];
+    },
+    enabled: !!id && isGM,
+  });
+
+  // Fetch GM notes
+  const { data: gmNotes = [] } = useQuery({
+    queryKey: ['campaign-gm-notes', id],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('gm_notes')
+        .select('*')
+        .eq('campaign_id', id)
+        .order('updated_at', { ascending: false });
+      if (error) throw error;
+      return data;
+    },
+    enabled: !!id && isGM,
+  });
+
+  // Fetch combat stat events
+  const { data: statEventsDB = [] } = useQuery({
+    queryKey: ['campaign-stat-events', id],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('combat_stat_events')
+        .select('*')
+        .eq('campaign_id', id);
+      if (error) throw error;
+      return data as CombatStatEventDB[];
+    },
+    enabled: !!id && isGM,
+  });
+
+  // Fetch profiles for character owners
+  const { data: profiles = {} } = useQuery({
+    queryKey: ['profiles-map'],
+    queryFn: async () => {
+      const { data, error } = await supabase.from('profiles').select('*');
+      if (error) throw error;
+      const map: Record<string, Profile> = {};
+      data?.forEach(p => { map[p.user_id] = p; });
+      return map;
+    },
+    enabled: !!user,
+  });
+
+  // Add timeline event mutation
+  const addEventMutation = useMutation({
+    mutationFn: async () => {
+      const { error } = await supabase
+        .from('timeline_events')
+        .insert({
+          campaign_id: id!,
+          title: newEventTitle,
+          description: newEventDesc,
+          event_type: newEventType,
+          event_date: newEventDate || new Date().toISOString().split('T')[0],
+        });
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      toast.success('Evento adicionado!');
+      queryClient.invalidateQueries({ queryKey: ['campaign-timeline', id] });
+      setIsAddEventOpen(false);
+      setNewEventTitle('');
+      setNewEventDesc('');
+      setNewEventType('discovery');
+      setNewEventDate('');
+    },
+    onError: () => {
+      toast.error('Erro ao adicionar evento.');
+    },
+  });
 
   useEffect(() => {
     if (campaign) setThemeBySystem(campaign.system);
   }, [campaign, setThemeBySystem]);
 
-  // Calculate average level for combat tab
-  const avgLevelRounded = useMemo(() => {
-    if (chars.length === 0) return 1;
-    return Math.round(chars.reduce((sum, c) => sum + c.level, 0) / chars.length);
-  }, [chars]);
+  // Convert DB characters to the format expected by GMDashboardTab
+  const charactersForDashboard = characters.map(c => ({
+    id: c.id,
+    campaignId: c.campaign_id,
+    userId: c.user_id,
+    name: c.name,
+    class: c.class || 'Desconhecido',
+    level: c.level || 1,
+    hp: c.hp_current || 0,
+    maxHp: c.hp_max || 10,
+    ac: c.ac || 10,
+    attributes: (c.attributes as any) || {},
+    skills: (c.skills as any) || {},
+    inventory: [],
+    notes: c.notes || '',
+  }));
 
-  const handleAddEvent = () => {
-    const newEvent: TimelineEvent = {
-      id: `event-${Date.now()}`,
-      campaignId: id!,
-      title: newEventTitle,
-      description: newEventDesc,
-      type: newEventType,
-      tags: newEventTags.split(',').map(t => t.trim()).filter(Boolean),
-      date: newEventDate || new Date().toISOString().split('T')[0],
-      attachments: [],
-    };
-    setEvents(prev => [newEvent, ...prev]);
-    setIsAddEventOpen(false);
-    setNewEventTitle('');
-    setNewEventDesc('');
-    setNewEventType('discovery');
-    setNewEventTags('');
-    setNewEventDate('');
-    toast.success('Evento adicionado!');
-  };
+  // Convert DB missions to expected format
+  const missionsForTab = missions.map(m => ({
+    id: m.id,
+    campaignId: m.campaign_id,
+    title: m.title,
+    description: m.description || '',
+    status: m.status as 'active' | 'completed',
+    notes: '',
+    objectives: (m.objectives as string[]) || [],
+    rewards: m.rewards || '',
+    createdAt: m.created_at,
+    completedAt: m.completed_at,
+  }));
+
+  // Convert stat events for dashboard
+  const statEventsForDashboard: CombatStatEvent[] = statEventsDB.map(e => ({
+    id: e.id,
+    campaignId: e.campaign_id,
+    characterId: e.character_id,
+    type: e.event_type as 'DAMAGE_DEALT' | 'DAMAGE_TAKEN' | 'HEALING_DONE' | 'OTHER',
+    amount: e.amount,
+    timestamp: e.created_at,
+    relatedRollId: e.related_roll_id || undefined,
+  }));
+
+  // Convert GM notes for tab
+  const gmNotesForTab: GMNote[] = gmNotes.map(n => ({
+    id: n.id,
+    campaignId: n.campaign_id,
+    title: n.title || '',
+    content: n.content,
+    createdAt: n.created_at,
+    updatedAt: n.updated_at,
+  }));
+
+  // Convert dice rolls for sidebar
+  const rollsForSidebar = diceRolls.map(r => ({
+    id: r.id,
+    campaignId: r.campaign_id,
+    userId: r.user_id,
+    formula: r.formula,
+    result: r.result,
+    details: r.details || '',
+    timestamp: r.created_at,
+  }));
+
+  // Calculate average level
+  const avgLevelRounded = useMemo(() => {
+    if (charactersForDashboard.length === 0) return 1;
+    return Math.round(charactersForDashboard.reduce((sum, c) => sum + c.level, 0) / charactersForDashboard.length);
+  }, [charactersForDashboard]);
 
   // Get user name for character
   const getUserName = (userId: string) => {
-    const user = users.find(u => u.id === userId);
-    return user?.name || 'Desconhecido';
+    return profiles[userId]?.name || 'Desconhecido';
   };
 
-  if (!campaign) return <MainLayout><div className="container py-8">Campanha não encontrada.</div></MainLayout>;
+  // Loading state
+  if (loadingCampaign) {
+    return (
+      <MainLayout>
+        <div className="flex items-center justify-center min-h-[50vh]">
+          <Loader2 className="h-8 w-8 animate-spin text-primary" />
+        </div>
+      </MainLayout>
+    );
+  }
+
+  // Campaign not found
+  if (campaignError || !campaign) {
+    return (
+      <MainLayout>
+        <div className="container py-8 text-center">
+          <AlertTriangle className="h-12 w-12 mx-auto text-destructive mb-4" />
+          <h1 className="text-2xl font-bold mb-2">Campanha não encontrada</h1>
+          <p className="text-muted-foreground mb-4">
+            A campanha pode não existir ou você não tem permissão para acessá-la.
+          </p>
+          <Link to="/campaigns">
+            <Button>Voltar às Campanhas</Button>
+          </Link>
+        </div>
+      </MainLayout>
+    );
+  }
+
+  // Not the GM
+  if (!isGM) {
+    return (
+      <MainLayout>
+        <div className="container py-8 text-center">
+          <Lock className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
+          <h1 className="text-2xl font-bold mb-2">Acesso Restrito</h1>
+          <p className="text-muted-foreground mb-4">
+            Apenas o Mestre da campanha pode acessar o Escudo do Mestre.
+          </p>
+          <Link to={`/campaigns/${id}`}>
+            <Button>Voltar à Campanha</Button>
+          </Link>
+        </div>
+      </MainLayout>
+    );
+  }
 
   return (
     <MainLayout>
@@ -245,24 +402,24 @@ export default function GMShieldPage() {
               </TabsTrigger>
             </TabsList>
 
-            {/* Visão Geral / Dashboard */}
+            {/* Dashboard */}
             <TabsContent value="overview">
               <GMDashboardTab 
-                characters={chars}
-                missions={missionsList}
-                statEvents={statEvents}
+                characters={charactersForDashboard}
+                missions={missionsForTab}
+                statEvents={statEventsForDashboard}
               />
             </TabsContent>
 
-            {/* Combate */}
+            {/* Combat */}
             <TabsContent value="combat">
               <GMCombatTab
                 campaignId={id!}
                 system={campaign.system}
                 avgLevelRounded={avgLevelRounded}
-                creatures={creatures}
-                setCreatures={setCreatures}
-                characters={chars}
+                creatures={[]}
+                setCreatures={() => {}}
+                characters={charactersForDashboard}
               />
             </TabsContent>
 
@@ -299,102 +456,110 @@ export default function GMShieldPage() {
                         </Select>
                       </div>
                       <div>
-                        <Label>Tags (separadas por vírgula)</Label>
-                        <Input value={newEventTags} onChange={e => setNewEventTags(e.target.value)} placeholder="combate, épico, dragão" />
-                      </div>
-                      <div>
                         <Label>Data (opcional)</Label>
                         <Input type="date" value={newEventDate} onChange={e => setNewEventDate(e.target.value)} />
                       </div>
                     </div>
                     <DialogFooter>
                       <Button variant="outline" onClick={() => setIsAddEventOpen(false)}>Cancelar</Button>
-                      <Button onClick={handleAddEvent} disabled={!newEventTitle}>Salvar</Button>
+                      <Button 
+                        onClick={() => addEventMutation.mutate()} 
+                        disabled={!newEventTitle || addEventMutation.isPending}
+                      >
+                        {addEventMutation.isPending ? 'Salvando...' : 'Salvar'}
+                      </Button>
                     </DialogFooter>
                   </DialogContent>
                 </Dialog>
               </div>
               <div className="relative border-l-2 border-primary/30 pl-6 space-y-6">
-                {events.map(event => (
-                  <Dialog key={event.id}>
-                    <DialogTrigger asChild>
-                      <div className="relative cursor-pointer group">
-                        <div className="absolute -left-[31px] h-4 w-4 rounded-full bg-primary border-2 border-background" />
-                        <Card className="hover:shadow-md transition-shadow">
-                          <CardContent className="p-4">
-                            <div className="flex items-center gap-2">
-                              <span className="text-xl">{getEventIcon(event.type)}</span>
-                              <div>
-                                <p className="font-semibold">{event.title}</p>
-                                <p className="text-xs text-muted-foreground">{event.date} • {getEventTypeName(event.type)}</p>
+                {timelineEvents.length === 0 ? (
+                  <p className="text-muted-foreground py-8 text-center">Nenhum evento na timeline ainda.</p>
+                ) : (
+                  timelineEvents.map(event => (
+                    <Dialog key={event.id}>
+                      <DialogTrigger asChild>
+                        <div className="relative cursor-pointer group">
+                          <div className="absolute -left-[31px] h-4 w-4 rounded-full bg-primary border-2 border-background" />
+                          <Card className="hover:shadow-md transition-shadow">
+                            <CardContent className="p-4">
+                              <div className="flex items-center gap-2">
+                                <span className="text-xl">{getEventIcon(event.event_type || 'event')}</span>
+                                <div>
+                                  <p className="font-semibold">{event.title}</p>
+                                  <p className="text-xs text-muted-foreground">{event.event_date} • {getEventTypeName(event.event_type || 'event')}</p>
+                                </div>
                               </div>
-                            </div>
-                          </CardContent>
-                        </Card>
-                      </div>
-                    </DialogTrigger>
-                    <DialogContent>
-                      <DialogHeader><DialogTitle>{getEventIcon(event.type)} {event.title}</DialogTitle></DialogHeader>
-                      <p className="text-muted-foreground">{event.description}</p>
-                      <p className="text-sm text-muted-foreground">{event.date}</p>
-                      <div className="flex gap-2 mt-2">{event.tags.map(t => <Badge key={t} variant="secondary">{t}</Badge>)}</div>
-                    </DialogContent>
-                  </Dialog>
-                ))}
+                            </CardContent>
+                          </Card>
+                        </div>
+                      </DialogTrigger>
+                      <DialogContent>
+                        <DialogHeader><DialogTitle>{getEventIcon(event.event_type || 'event')} {event.title}</DialogTitle></DialogHeader>
+                        <p className="text-muted-foreground">{event.description}</p>
+                        <p className="text-sm text-muted-foreground">{event.event_date}</p>
+                      </DialogContent>
+                    </Dialog>
+                  ))
+                )}
               </div>
             </TabsContent>
 
-            {/* Missões */}
+            {/* Missions */}
             <TabsContent value="missions">
               <GMMissionsTab 
                 campaignId={id!}
-                missions={missionsList}
-                setMissions={setMissionsList}
+                missions={missionsForTab}
+                setMissions={() => {}}
               />
             </TabsContent>
 
-            {/* Anotações do Mestre */}
+            {/* Notes */}
             <TabsContent value="notes">
               <GMNotesTab 
                 campaignId={id!}
-                notes={gmNotes}
-                setNotes={setGmNotes}
+                notes={gmNotesForTab}
+                setNotes={() => {}}
               />
             </TabsContent>
 
-            {/* Personagens */}
+            {/* Characters */}
             <TabsContent value="characters">
               <div className="space-y-3">
-                {chars.map(c => (
-                  <Card key={c.id}>
-                    <CardContent className="flex items-center justify-between p-4">
-                      <div>
-                        <p className="font-semibold">{c.name}</p>
-                        <p className="text-sm text-muted-foreground">
-                          {c.class} Nv.{c.level} • Controlado por: {getUserName(c.userId)}
-                        </p>
-                      </div>
-                      <div className="flex items-center gap-4">
-                        <div className="text-center">
-                          <p className="text-xs text-muted-foreground">PV</p>
-                          <p className="font-bold">{c.hp}/{c.maxHp}</p>
+                {charactersForDashboard.length === 0 ? (
+                  <p className="text-muted-foreground text-center py-8">Nenhum personagem criado ainda.</p>
+                ) : (
+                  charactersForDashboard.map(c => (
+                    <Card key={c.id}>
+                      <CardContent className="flex items-center justify-between p-4">
+                        <div>
+                          <p className="font-semibold">{c.name}</p>
+                          <p className="text-sm text-muted-foreground">
+                            {c.class} Nv.{c.level} • Controlado por: {getUserName(c.userId)}
+                          </p>
                         </div>
-                        <div className="text-center">
-                          <p className="text-xs text-muted-foreground">CA</p>
-                          <p className="font-bold">{c.ac}</p>
+                        <div className="flex items-center gap-4">
+                          <div className="text-center">
+                            <p className="text-xs text-muted-foreground">PV</p>
+                            <p className="font-bold">{c.hp}/{c.maxHp}</p>
+                          </div>
+                          <div className="text-center">
+                            <p className="text-xs text-muted-foreground">CA</p>
+                            <p className="font-bold">{c.ac}</p>
+                          </div>
+                          <Button size="sm" variant="outline" onClick={() => navigate(`/characters/${c.id}`)}>
+                            <Edit className="h-4 w-4 mr-1" />Editar
+                          </Button>
                         </div>
-                        <Button size="sm" variant="outline" onClick={() => navigate(`/characters/${c.id}`)}>
-                          <Edit className="h-4 w-4 mr-1" />Editar
-                        </Button>
-                      </div>
-                    </CardContent>
-                  </Card>
-                ))}
+                      </CardContent>
+                    </Card>
+                  ))
+                )}
               </div>
             </TabsContent>
           </Tabs>
         </div>
-        <RollsSidebar rolls={rolls} />
+        <RollsSidebar rolls={rollsForSidebar} />
       </div>
     </MainLayout>
   );
