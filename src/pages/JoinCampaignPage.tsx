@@ -33,22 +33,22 @@ export default function JoinCampaignPage() {
   const [code, setCode] = useState('');
   const [search, setSearch] = useState('');
 
-  // Fetch public campaigns using the secure view (excludes sensitive data like invite_code)
+  // Fetch public campaigns using the secure RPC function
   const { data: publicCampaigns = [], isLoading: loadingCampaigns } = useQuery({
     queryKey: ['public-campaigns'],
     queryFn: async () => {
       const { data, error } = await supabase
-        .from('public_campaigns')
-        .select('*');
+        .rpc('get_public_campaigns');
       if (error) throw error;
-      // Map to Campaign type (public_campaigns view excludes invite_code, gm_id, updated_at)
-      return (data || []).map(c => ({
+      // Map to Campaign type (RPC excludes invite_code, gm_id, updated_at)
+      return (data || []).map((c: any) => ({
         ...c,
         gm_id: '', // Not available in public view
         invite_code: null, // Not available in public view
         updated_at: c.created_at, // Use created_at as fallback
       })) as Campaign[];
     },
+    enabled: !!user,
   });
 
   // Fetch user's memberships to check pending status
@@ -96,9 +96,9 @@ export default function JoinCampaignPage() {
     },
   });
 
+  // Filter public campaigns by search term (gm_id not available in public view, so we can't filter by it)
   const filteredCampaigns = publicCampaigns.filter(c => 
-    c.name.toLowerCase().includes(search.toLowerCase()) &&
-    c.gm_id !== user?.id // Don't show user's own campaigns
+    c.name && c.name.toLowerCase().includes(search.toLowerCase())
   );
 
   const getMembershipStatus = (campaignId: string) => {
@@ -123,14 +123,19 @@ export default function JoinCampaignPage() {
       return;
     }
 
-    // Find campaign by code
-    const { data: campaign, error } = await supabase
-      .from('campaigns')
-      .select('*')
-      .eq('invite_code', code.toUpperCase())
-      .single();
+    // Find campaign by code using RPC function (works for any authenticated user)
+    const { data: campaigns, error } = await supabase
+      .rpc('get_campaign_by_invite_code', { _code: code });
     
-    if (error || !campaign) {
+    if (error) {
+      console.error('Error fetching campaign by code:', error);
+      toast.error('Erro ao buscar campanha. Tente novamente.');
+      return;
+    }
+
+    const campaign = campaigns?.[0];
+    
+    if (!campaign) {
       toast.error('Código de campanha não encontrado.');
       return;
     }
