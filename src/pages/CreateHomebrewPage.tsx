@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
+import { z } from 'zod';
 import { MainLayout } from '@/components/layout/MainLayout';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
@@ -13,6 +14,16 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Switch } from '@/components/ui/switch';
 import { toast } from 'sonner';
+
+// Input validation schema
+const homebrewSchema = z.object({
+  name: z.string().min(1, 'O nome é obrigatório').max(100, 'O nome deve ter no máximo 100 caracteres'),
+  description: z.string().max(5000, 'A descrição deve ter no máximo 5000 caracteres').optional(),
+  type: z.enum(['item', 'creature', 'spell', 'class', 'race']),
+  system: z.enum(['5e', 'olho_da_morte', 'horror']),
+  rarity: z.enum(['comum', 'incomum', 'raro', 'muito_raro', 'lendario', 'artefato']),
+  isPublic: z.boolean(),
+});
 
 type SystemType = Database['public']['Enums']['system_type'];
 type HomebrewType = Database['public']['Enums']['homebrew_type'];
@@ -50,13 +61,24 @@ export default function CreateHomebrewPage() {
   };
 
   const handleCreate = async () => {
-    if (!name.trim()) {
-      toast.error('O nome é obrigatório!');
+    if (!user) {
+      toast.error('Você precisa estar logado.');
       return;
     }
 
-    if (!user) {
-      toast.error('Você precisa estar logado.');
+    // Validate input with zod schema
+    const validationResult = homebrewSchema.safeParse({
+      name: name.trim(),
+      description: description.trim() || undefined,
+      type,
+      system,
+      rarity,
+      isPublic,
+    });
+
+    if (!validationResult.success) {
+      const firstError = validationResult.error.errors[0];
+      toast.error(firstError.message);
       return;
     }
 
@@ -67,12 +89,12 @@ export default function CreateHomebrewPage() {
         .from('homebrews')
         .insert({
           creator_id: user.id,
-          name: name.trim(),
-          description: description.trim() || null,
-          type,
-          system,
-          rarity,
-          is_public: isPublic,
+          name: validationResult.data.name,
+          description: validationResult.data.description || null,
+          type: validationResult.data.type,
+          system: validationResult.data.system,
+          rarity: validationResult.data.rarity,
+          is_public: validationResult.data.isPublic,
           data: {},
         })
         .select()
@@ -82,9 +104,14 @@ export default function CreateHomebrewPage() {
 
       toast.success('Homebrew criada com sucesso!');
       navigate(`/homebrews/${data.id}`);
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error creating homebrew:', error);
-      toast.error('Erro ao criar homebrew. Tente novamente.');
+      // Handle server-side validation errors
+      if (error.message?.includes('100 characters') || error.message?.includes('5000 characters')) {
+        toast.error(error.message);
+      } else {
+        toast.error('Erro ao criar homebrew. Tente novamente.');
+      }
     } finally {
       setIsLoading(false);
     }
@@ -164,7 +191,9 @@ export default function CreateHomebrewPage() {
                   value={name}
                   onChange={(e) => setName(e.target.value)}
                   disabled={isLoading}
+                  maxLength={100}
                 />
+                <p className="text-xs text-muted-foreground">{name.length}/100 caracteres</p>
               </div>
               
               <div className="space-y-2">
@@ -176,7 +205,9 @@ export default function CreateHomebrewPage() {
                   onChange={(e) => setDescription(e.target.value)}
                   rows={4}
                   disabled={isLoading}
+                  maxLength={5000}
                 />
+                <p className="text-xs text-muted-foreground">{description.length}/5000 caracteres</p>
               </div>
 
               <div className="space-y-2">
