@@ -42,6 +42,13 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "campaign_homebrews_campaign_id_fkey"
+            columns: ["campaign_id"]
+            isOneToOne: false
+            referencedRelation: "public_campaigns"
+            referencedColumns: ["id"]
+          },
+          {
             foreignKeyName: "campaign_homebrews_homebrew_id_fkey"
             columns: ["homebrew_id"]
             isOneToOne: false
@@ -84,6 +91,13 @@ export type Database = {
             columns: ["campaign_id"]
             isOneToOne: false
             referencedRelation: "campaigns"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "campaign_memberships_campaign_id_fkey"
+            columns: ["campaign_id"]
+            isOneToOne: false
+            referencedRelation: "public_campaigns"
             referencedColumns: ["id"]
           },
         ]
@@ -241,6 +255,13 @@ export type Database = {
             referencedRelation: "campaigns"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "characters_campaign_id_fkey"
+            columns: ["campaign_id"]
+            isOneToOne: false
+            referencedRelation: "public_campaigns"
+            referencedColumns: ["id"]
+          },
         ]
       }
       combat_encounters: {
@@ -282,6 +303,13 @@ export type Database = {
             referencedRelation: "campaigns"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "combat_encounters_campaign_id_fkey"
+            columns: ["campaign_id"]
+            isOneToOne: false
+            referencedRelation: "public_campaigns"
+            referencedColumns: ["id"]
+          },
         ]
       }
       combat_stat_events: {
@@ -318,6 +346,13 @@ export type Database = {
             columns: ["campaign_id"]
             isOneToOne: false
             referencedRelation: "campaigns"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "combat_stat_events_campaign_id_fkey"
+            columns: ["campaign_id"]
+            isOneToOne: false
+            referencedRelation: "public_campaigns"
             referencedColumns: ["id"]
           },
           {
@@ -376,6 +411,13 @@ export type Database = {
             columns: ["campaign_id"]
             isOneToOne: false
             referencedRelation: "campaigns"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "dice_rolls_campaign_id_fkey"
+            columns: ["campaign_id"]
+            isOneToOne: false
+            referencedRelation: "public_campaigns"
             referencedColumns: ["id"]
           },
           {
@@ -477,6 +519,13 @@ export type Database = {
             referencedRelation: "campaigns"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "gm_notes_campaign_id_fkey"
+            columns: ["campaign_id"]
+            isOneToOne: false
+            referencedRelation: "public_campaigns"
+            referencedColumns: ["id"]
+          },
         ]
       }
       homebrews: {
@@ -563,6 +612,13 @@ export type Database = {
             referencedRelation: "campaigns"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "missions_campaign_id_fkey"
+            columns: ["campaign_id"]
+            isOneToOne: false
+            referencedRelation: "public_campaigns"
+            referencedColumns: ["id"]
+          },
         ]
       }
       profiles: {
@@ -634,6 +690,13 @@ export type Database = {
             referencedRelation: "campaigns"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "timeline_events_campaign_id_fkey"
+            columns: ["campaign_id"]
+            isOneToOne: false
+            referencedRelation: "public_campaigns"
+            referencedColumns: ["id"]
+          },
         ]
       }
       user_roles: {
@@ -656,11 +719,45 @@ export type Database = {
       }
     }
     Views: {
-      [_ in never]: never
+      public_campaigns: {
+        Row: {
+          created_at: string | null
+          description: string | null
+          id: string | null
+          is_active: boolean | null
+          max_players: number | null
+          name: string | null
+          system: Database["public"]["Enums"]["system_type"] | null
+        }
+        Insert: {
+          created_at?: string | null
+          description?: string | null
+          id?: string | null
+          is_active?: boolean | null
+          max_players?: number | null
+          name?: string | null
+          system?: Database["public"]["Enums"]["system_type"] | null
+        }
+        Update: {
+          created_at?: string | null
+          description?: string | null
+          id?: string | null
+          is_active?: boolean | null
+          max_players?: number | null
+          name?: string | null
+          system?: Database["public"]["Enums"]["system_type"] | null
+        }
+        Relationships: []
+      }
     }
     Functions: {
+      has_campaign_access: { Args: { campaign_uuid: string }; Returns: boolean }
       is_campaign_gm: { Args: { campaign_uuid: string }; Returns: boolean }
       is_campaign_member: { Args: { campaign_uuid: string }; Returns: boolean }
+      is_same_campaign_member: {
+        Args: { target_user_id: string }
+        Returns: boolean
+      }
     }
     Enums: {
       homebrew_type: "item" | "creature" | "spell" | "class" | "race"
