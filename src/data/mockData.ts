@@ -1,8 +1,8 @@
 // ============================================
-// MesaHub Mock Data
+// DiceHub Mock Data
 // ============================================
 
-export type SystemType = '5e' | 'autoral' | 'horror';
+export type SystemType = '5e' | 'autoral' | 'olho_da_morte' | 'horror';
 export type ThemeType = 'neutral' | 'medieval' | 'wildwest' | 'cosmic';
 export type UserRole = 'player' | 'gm' | 'admin';
 export type CampaignRole = 'gm' | 'player';
@@ -745,11 +745,12 @@ export const adminLogs: AdminLog[] = [
 // HELPER FUNCTIONS
 // ============================================
 
-export const getSystemTheme = (system: SystemType): ThemeType => {
+export const getSystemTheme = (system: SystemType | string): ThemeType => {
   switch (system) {
     case '5e':
       return 'medieval';
     case 'autoral':
+    case 'olho_da_morte':
       return 'wildwest';
     case 'horror':
       return 'cosmic';
@@ -758,12 +759,13 @@ export const getSystemTheme = (system: SystemType): ThemeType => {
   }
 };
 
-export const getSystemName = (system: SystemType): string => {
+export const getSystemName = (system: SystemType | string): string => {
   switch (system) {
     case '5e':
-      return '5e (SRD)';
+      return 'D&D 5e (SRD)';
     case 'autoral':
-      return 'Sistema Autoral';
+    case 'olho_da_morte':
+      return 'Sistema Olho da Morte';
     case 'horror':
       return 'Horror Cósmico';
     default:

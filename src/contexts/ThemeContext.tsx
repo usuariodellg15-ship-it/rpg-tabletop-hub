@@ -1,14 +1,30 @@
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
-import { ThemeType, SystemType, getSystemTheme } from '@/data/mockData';
+
+export type ThemeType = 'neutral' | 'medieval' | 'wildwest' | 'cosmic';
 
 interface ThemeContextType {
   theme: ThemeType;
   setTheme: (theme: ThemeType) => void;
-  setThemeBySystem: (system: SystemType) => void;
+  setThemeBySystem: (system: string) => void;
   resetToNeutral: () => void;
 }
 
 const ThemeContext = createContext<ThemeContextType | undefined>(undefined);
+
+// Map system to theme
+const getSystemTheme = (system: string): ThemeType => {
+  switch (system) {
+    case '5e':
+      return 'medieval';
+    case 'autoral':
+    case 'olho_da_morte':
+      return 'wildwest';
+    case 'horror':
+      return 'cosmic';
+    default:
+      return 'neutral';
+  }
+};
 
 export function ThemeProvider({ children }: { children: ReactNode }) {
   const [theme, setTheme] = useState<ThemeType>('neutral');
@@ -27,7 +43,7 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
     }
   }, [theme]);
 
-  const setThemeBySystem = (system: SystemType) => {
+  const setThemeBySystem = (system: string) => {
     setTheme(getSystemTheme(system));
   };
 

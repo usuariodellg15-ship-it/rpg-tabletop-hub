@@ -7,6 +7,7 @@ import { ThemeProvider } from "@/contexts/ThemeContext";
 import { AuthProvider } from "@/contexts/AuthContext";
 
 // Pages
+import HomePage from "./pages/HomePage";
 import LoginPage from "./pages/LoginPage";
 import CampaignsPage from "./pages/CampaignsPage";
 import CreateCampaignPage from "./pages/CreateCampaignPage";
@@ -34,7 +35,7 @@ const App = () => (
           <Sonner />
           <BrowserRouter>
             <Routes>
-              <Route path="/" element={<Navigate to="/campaigns" replace />} />
+              <Route path="/" element={<HomePage />} />
               <Route path="/login" element={<LoginPage />} />
               <Route path="/campaigns" element={<CampaignsPage />} />
               <Route path="/campaigns/new" element={<CreateCampaignPage />} />
