@@ -751,6 +751,31 @@ export type Database = {
       }
     }
     Functions: {
+      get_campaign_by_invite_code: {
+        Args: { _code: string }
+        Returns: {
+          created_at: string
+          description: string
+          gm_id: string
+          id: string
+          is_active: boolean
+          max_players: number
+          name: string
+          system: Database["public"]["Enums"]["system_type"]
+        }[]
+      }
+      get_public_campaigns: {
+        Args: never
+        Returns: {
+          created_at: string
+          description: string
+          id: string
+          is_active: boolean
+          max_players: number
+          name: string
+          system: Database["public"]["Enums"]["system_type"]
+        }[]
+      }
       has_campaign_access: { Args: { campaign_uuid: string }; Returns: boolean }
       is_admin: { Args: never; Returns: boolean }
       is_campaign_gm: { Args: { campaign_uuid: string }; Returns: boolean }
