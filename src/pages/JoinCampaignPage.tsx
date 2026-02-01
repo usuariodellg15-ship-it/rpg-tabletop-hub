@@ -33,16 +33,21 @@ export default function JoinCampaignPage() {
   const [code, setCode] = useState('');
   const [search, setSearch] = useState('');
 
-  // Fetch public campaigns
+  // Fetch public campaigns using the secure view (excludes sensitive data like invite_code)
   const { data: publicCampaigns = [], isLoading: loadingCampaigns } = useQuery({
     queryKey: ['public-campaigns'],
     queryFn: async () => {
       const { data, error } = await supabase
-        .from('campaigns')
-        .select('*')
-        .eq('is_active', true);
+        .from('public_campaigns')
+        .select('*');
       if (error) throw error;
-      return data as Campaign[];
+      // Map to Campaign type (public_campaigns view excludes invite_code, gm_id, updated_at)
+      return (data || []).map(c => ({
+        ...c,
+        gm_id: '', // Not available in public view
+        invite_code: null, // Not available in public view
+        updated_at: c.created_at, // Use created_at as fallback
+      })) as Campaign[];
     },
   });
 

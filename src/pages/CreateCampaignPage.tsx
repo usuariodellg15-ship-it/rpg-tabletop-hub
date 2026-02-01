@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { z } from 'zod';
 import { MainLayout } from '@/components/layout/MainLayout';
 import { useTheme } from '@/contexts/ThemeContext';
 import { useAuth } from '@/contexts/AuthContext';
@@ -23,6 +24,13 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { motion, AnimatePresence } from 'framer-motion';
 import { toast } from 'sonner';
+
+// Input validation schema
+const campaignSchema = z.object({
+  name: z.string().min(1, 'O nome é obrigatório').max(100, 'O nome deve ter no máximo 100 caracteres'),
+  description: z.string().max(2000, 'A descrição deve ter no máximo 2000 caracteres').optional(),
+  system: z.enum(['5e', 'olho_da_morte', 'horror']),
+});
 
 type SystemType = Database['public']['Enums']['system_type'];
 
@@ -57,13 +65,21 @@ export default function CreateCampaignPage() {
   };
 
   const handleCreate = async () => {
-    if (!name.trim()) {
-      toast.error('Por favor, insira um nome para a campanha.');
+    if (!user) {
+      toast.error('Você precisa estar logado.');
       return;
     }
 
-    if (!user) {
-      toast.error('Você precisa estar logado.');
+    // Validate input with zod schema
+    const validationResult = campaignSchema.safeParse({
+      name: name.trim(),
+      description: description.trim() || undefined,
+      system,
+    });
+
+    if (!validationResult.success) {
+      const firstError = validationResult.error.errors[0];
+      toast.error(firstError.message);
       return;
     }
 
@@ -73,9 +89,9 @@ export default function CreateCampaignPage() {
       const { data, error } = await supabase
         .from('campaigns')
         .insert({
-          name: name.trim(),
-          description: description.trim() || null,
-          system,
+          name: validationResult.data.name,
+          description: validationResult.data.description || null,
+          system: validationResult.data.system,
           gm_id: user.id,
           invite_code: generateInviteCode(),
           is_active: true,
@@ -87,9 +103,14 @@ export default function CreateCampaignPage() {
 
       toast.success('Campanha criada com sucesso!');
       navigate(`/campaigns/${data.id}`);
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error creating campaign:', error);
-      toast.error('Erro ao criar campanha. Tente novamente.');
+      // Handle server-side validation errors
+      if (error.message?.includes('100 characters') || error.message?.includes('2000 characters')) {
+        toast.error(error.message);
+      } else {
+        toast.error('Erro ao criar campanha. Tente novamente.');
+      }
     } finally {
       setIsLoading(false);
     }
@@ -160,7 +181,9 @@ export default function CreateCampaignPage() {
                   value={name}
                   onChange={(e) => setName(e.target.value)}
                   disabled={isLoading}
+                  maxLength={100}
                 />
+                <p className="text-xs text-muted-foreground">{name.length}/100 caracteres</p>
               </div>
               <div className="space-y-2">
                 <Label htmlFor="description">Descrição</Label>
@@ -171,7 +194,9 @@ export default function CreateCampaignPage() {
                   onChange={(e) => setDescription(e.target.value)}
                   rows={4}
                   disabled={isLoading}
+                  maxLength={2000}
                 />
+                <p className="text-xs text-muted-foreground">{description.length}/2000 caracteres</p>
               </div>
             </CardContent>
           </Card>

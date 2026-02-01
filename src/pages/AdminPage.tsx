@@ -1,8 +1,9 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Link, Navigate } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
+import { supabase } from '@/integrations/supabase/client';
 import { users, campaigns, homebrews, adminLogs } from '@/data/mockData';
-import { Shield, Users, Scroll, Wand2, FileText, Search, Ban, CheckCircle, Trash2, AlertTriangle, ArrowLeft } from 'lucide-react';
+import { Shield, Users, Scroll, Wand2, FileText, Search, Ban, CheckCircle, Trash2, AlertTriangle, ArrowLeft, Loader2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -16,8 +17,49 @@ export default function AdminPage() {
   const [searchUsers, setSearchUsers] = useState('');
   const [searchCampaigns, setSearchCampaigns] = useState('');
   const [searchHomebrews, setSearchHomebrews] = useState('');
+  const [isAdmin, setIsAdmin] = useState<boolean | null>(null);
+  const [isCheckingAdmin, setIsCheckingAdmin] = useState(true);
 
-  if (user?.role !== 'admin') return <Navigate to="/campaigns" replace />;
+  // Server-side admin check using the is_admin() RPC function
+  useEffect(() => {
+    const checkAdminStatus = async () => {
+      if (!user) {
+        setIsAdmin(false);
+        setIsCheckingAdmin(false);
+        return;
+      }
+
+      try {
+        const { data, error } = await supabase.rpc('is_admin');
+        
+        if (error) {
+          console.error('Error checking admin status:', error);
+          setIsAdmin(false);
+        } else {
+          setIsAdmin(data === true);
+        }
+      } catch (err) {
+        console.error('Error checking admin status:', err);
+        setIsAdmin(false);
+      } finally {
+        setIsCheckingAdmin(false);
+      }
+    };
+
+    checkAdminStatus();
+  }, [user]);
+
+  // Show loading state while checking admin status
+  if (isCheckingAdmin) {
+    return (
+      <div className="min-h-screen bg-muted flex items-center justify-center">
+        <Loader2 className="h-8 w-8 animate-spin text-primary" />
+      </div>
+    );
+  }
+
+  // Redirect non-admin users (server-verified)
+  if (!isAdmin) return <Navigate to="/campaigns" replace />;
 
   const filteredUsers = users.filter(u => u.name.toLowerCase().includes(searchUsers.toLowerCase()));
   const filteredCampaigns = campaigns.filter(c => c.name.toLowerCase().includes(searchCampaigns.toLowerCase()));

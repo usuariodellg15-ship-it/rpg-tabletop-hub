@@ -752,6 +752,7 @@ export type Database = {
     }
     Functions: {
       has_campaign_access: { Args: { campaign_uuid: string }; Returns: boolean }
+      is_admin: { Args: never; Returns: boolean }
       is_campaign_gm: { Args: { campaign_uuid: string }; Returns: boolean }
       is_campaign_member: { Args: { campaign_uuid: string }; Returns: boolean }
       is_same_campaign_member: {
