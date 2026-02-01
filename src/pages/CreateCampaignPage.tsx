@@ -2,7 +2,9 @@ import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { MainLayout } from '@/components/layout/MainLayout';
 import { useTheme } from '@/contexts/ThemeContext';
-import { SystemType, getSystemName } from '@/data/mockData';
+import { useAuth } from '@/contexts/AuthContext';
+import { supabase } from '@/integrations/supabase/client';
+import type { Database } from '@/integrations/supabase/types';
 import { 
   ArrowLeft, 
   ArrowRight, 
@@ -10,7 +12,8 @@ import {
   Castle, 
   Crosshair,
   Wand2,
-  Skull
+  Skull,
+  Loader2
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -21,26 +24,75 @@ import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { motion, AnimatePresence } from 'framer-motion';
 import { toast } from 'sonner';
 
+type SystemType = Database['public']['Enums']['system_type'];
+
 export default function CreateCampaignPage() {
   const navigate = useNavigate();
+  const { user } = useAuth();
   const { setThemeBySystem, resetToNeutral } = useTheme();
   const [name, setName] = useState('');
   const [description, setDescription] = useState('');
   const [system, setSystem] = useState<SystemType>('5e');
+  const [isLoading, setIsLoading] = useState(false);
 
-  const handleSystemChange = (value: SystemType) => {
-    setSystem(value);
-    setThemeBySystem(value);
+  const handleSystemChange = (value: string) => {
+    const systemValue = value as SystemType;
+    setSystem(systemValue);
+    // Map DB system to theme
+    const themeMap: Record<SystemType, string> = {
+      '5e': '5e',
+      'olho_da_morte': 'autoral',
+      'horror': 'horror',
+    };
+    setThemeBySystem(themeMap[systemValue] as any);
   };
 
-  const handleCreate = () => {
+  const generateInviteCode = () => {
+    const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
+    let code = '';
+    for (let i = 0; i < 8; i++) {
+      code += chars.charAt(Math.floor(Math.random() * chars.length));
+    }
+    return code;
+  };
+
+  const handleCreate = async () => {
     if (!name.trim()) {
       toast.error('Por favor, insira um nome para a campanha.');
       return;
     }
 
-    toast.success('Campanha criada com sucesso!');
-    navigate('/campaigns/campaign-1');
+    if (!user) {
+      toast.error('Você precisa estar logado.');
+      return;
+    }
+
+    setIsLoading(true);
+
+    try {
+      const { data, error } = await supabase
+        .from('campaigns')
+        .insert({
+          name: name.trim(),
+          description: description.trim() || null,
+          system,
+          gm_id: user.id,
+          invite_code: generateInviteCode(),
+          is_active: true,
+        })
+        .select()
+        .single();
+
+      if (error) throw error;
+
+      toast.success('Campanha criada com sucesso!');
+      navigate(`/campaigns/${data.id}`);
+    } catch (error) {
+      console.error('Error creating campaign:', error);
+      toast.error('Erro ao criar campanha. Tente novamente.');
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   const handleBack = () => {
@@ -48,10 +100,19 @@ export default function CreateCampaignPage() {
     navigate('/campaigns');
   };
 
+  const getSystemName = (sys: SystemType) => {
+    switch (sys) {
+      case '5e': return 'D&D 5e (SRD)';
+      case 'olho_da_morte': return 'Sistema Olho da Morte';
+      case 'horror': return 'Horror Cósmico';
+      default: return sys;
+    }
+  };
+
   const getCardClass = () => {
     switch (system) {
       case '5e': return 'card-ornate';
-      case 'autoral': return 'card-wanted';
+      case 'olho_da_morte': return 'card-wanted';
       case 'horror': return 'card-eldritch';
       default: return '';
     }
@@ -60,7 +121,7 @@ export default function CreateCampaignPage() {
   const getBadgeClass = () => {
     switch (system) {
       case '5e': return 'bg-amber-100 text-amber-800';
-      case 'autoral': return 'bg-orange-950 text-orange-200';
+      case 'olho_da_morte': return 'bg-orange-950 text-orange-200';
       case 'horror': return 'bg-purple-900 text-emerald-200';
       default: return '';
     }
@@ -98,6 +159,7 @@ export default function CreateCampaignPage() {
                   placeholder="Ex: A Maldição do Dragão Negro"
                   value={name}
                   onChange={(e) => setName(e.target.value)}
+                  disabled={isLoading}
                 />
               </div>
               <div className="space-y-2">
@@ -108,6 +170,7 @@ export default function CreateCampaignPage() {
                   value={description}
                   onChange={(e) => setDescription(e.target.value)}
                   rows={4}
+                  disabled={isLoading}
                 />
               </div>
             </CardContent>
@@ -124,7 +187,7 @@ export default function CreateCampaignPage() {
             <CardContent>
               <RadioGroup 
                 value={system} 
-                onValueChange={(v) => handleSystemChange(v as SystemType)}
+                onValueChange={handleSystemChange}
                 className="grid md:grid-cols-3 gap-4"
               >
                 <Label
@@ -141,42 +204,32 @@ export default function CreateCampaignPage() {
                       <Castle className="h-5 w-5 text-amber-700" />
                     </div>
                     <div className="flex-1">
-                      <h4 className="font-semibold">5e (SRD)</h4>
+                      <h4 className="font-semibold">D&D 5e (SRD)</h4>
                       <p className="text-sm text-muted-foreground">
                         Fantasia clássica medieval.
                       </p>
-                      <div className="mt-2 flex gap-1">
-                        <span className="h-4 w-4 rounded-full bg-amber-600" />
-                        <span className="h-4 w-4 rounded-full bg-amber-900" />
-                        <span className="h-4 w-4 rounded-full bg-stone-400" />
-                      </div>
                     </div>
                   </div>
                 </Label>
 
                 <Label
-                  htmlFor="system-autoral"
+                  htmlFor="system-olho_da_morte"
                   className={`cursor-pointer rounded-lg border-2 p-4 transition-all ${
-                    system === 'autoral' 
+                    system === 'olho_da_morte' 
                       ? 'border-primary bg-primary/5' 
                       : 'border-border hover:border-primary/50'
                   }`}
                 >
-                  <RadioGroupItem value="autoral" id="system-autoral" className="sr-only" />
+                  <RadioGroupItem value="olho_da_morte" id="system-olho_da_morte" className="sr-only" />
                   <div className="flex items-start gap-3">
                     <div className="h-10 w-10 rounded-lg bg-orange-950 flex items-center justify-center">
                       <Crosshair className="h-5 w-5 text-orange-400" />
                     </div>
                     <div className="flex-1">
-                      <h4 className="font-semibold">Sistema Autoral</h4>
+                      <h4 className="font-semibold">Sistema Olho da Morte</h4>
                       <p className="text-sm text-muted-foreground">
                         Velho Oeste dark.
                       </p>
-                      <div className="mt-2 flex gap-1">
-                        <span className="h-4 w-4 rounded-full bg-orange-800" />
-                        <span className="h-4 w-4 rounded-full bg-red-900" />
-                        <span className="h-4 w-4 rounded-full bg-stone-900" />
-                      </div>
                     </div>
                   </div>
                 </Label>
@@ -199,36 +252,10 @@ export default function CreateCampaignPage() {
                       <p className="text-sm text-muted-foreground">
                         Investigação lovecraftiana.
                       </p>
-                      <div className="mt-2 flex gap-1">
-                        <span className="h-4 w-4 rounded-full bg-purple-800" />
-                        <span className="h-4 w-4 rounded-full bg-indigo-900" />
-                        <span className="h-4 w-4 rounded-full bg-emerald-700" />
-                      </div>
                     </div>
                   </div>
                 </Label>
               </RadioGroup>
-            </CardContent>
-          </Card>
-
-          {/* Cover Image */}
-          <Card>
-            <CardHeader>
-              <CardTitle>Imagem de Capa</CardTitle>
-              <CardDescription>
-                Adicione uma imagem que represente sua campanha (opcional).
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              <div className="border-2 border-dashed rounded-lg p-8 text-center hover:border-primary/50 transition-colors cursor-pointer">
-                <Upload className="h-8 w-8 mx-auto text-muted-foreground mb-2" />
-                <p className="text-sm text-muted-foreground">
-                  Arraste uma imagem ou clique para selecionar
-                </p>
-                <p className="text-xs text-muted-foreground mt-1">
-                  PNG, JPG até 5MB
-                </p>
-              </div>
             </CardContent>
           </Card>
 
@@ -269,12 +296,21 @@ export default function CreateCampaignPage() {
 
           {/* Actions */}
           <div className="flex justify-end gap-4">
-            <Button variant="outline" onClick={handleBack}>
+            <Button variant="outline" onClick={handleBack} disabled={isLoading}>
               Cancelar
             </Button>
-            <Button onClick={handleCreate} className="gap-2">
-              Criar Campanha
-              <ArrowRight className="h-4 w-4" />
+            <Button onClick={handleCreate} className="gap-2" disabled={isLoading}>
+              {isLoading ? (
+                <>
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                  Criando...
+                </>
+              ) : (
+                <>
+                  Criar Campanha
+                  <ArrowRight className="h-4 w-4" />
+                </>
+              )}
             </Button>
           </div>
         </div>
