@@ -417,9 +417,7 @@ export default function GMShieldPage() {
                 campaignId={id!}
                 system={campaign.system}
                 avgLevelRounded={avgLevelRounded}
-                creatures={[]}
-                setCreatures={() => {}}
-                characters={charactersForDashboard}
+                characters={characters}
               />
             </TabsContent>
 

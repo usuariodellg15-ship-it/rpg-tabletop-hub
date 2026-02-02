@@ -1,4 +1,7 @@
 import { useState, useMemo } from 'react';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { supabase } from '@/integrations/supabase/client';
+import type { Database } from '@/integrations/supabase/types';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -19,61 +22,54 @@ import {
   ChevronRight,
   Dices,
   Trash2,
-  Eye
+  Eye,
+  Loader2
 } from 'lucide-react';
 import { DndContext, closestCenter, KeyboardSensor, PointerSensor, useSensor, useSensors, DragEndEvent } from '@dnd-kit/core';
 import { arrayMove, SortableContext, sortableKeyboardCoordinates, useSortable, verticalListSortingStrategy } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
 import { toast } from 'sonner';
-import { EncounterCreature, SystemType } from '@/data/mockData';
 import { Creature, creatures as creatureCatalog } from '@/data/mockCreatures';
 
-// Simplified character interface for combat tab
-interface CombatCharacter {
-  id: string;
-  campaignId: string;
-  userId: string;
-  name: string;
-  class: string;
-  level: number;
-  hp: number;
-  maxHp: number;
-  ac: number;
-}
+type SystemType = Database['public']['Enums']['system_type'];
+type EncounterEntry = Database['public']['Tables']['encounter_entries']['Row'];
+type CombatEncounter = Database['public']['Tables']['combat_encounters']['Row'];
+type Character = Database['public']['Tables']['characters']['Row'];
 
-interface SortableCreatureProps {
-  creature: EncounterCreature;
+interface SortableEntryProps {
+  entry: EncounterEntry;
   onInitiativeChange: (id: string, value: number) => void;
   onNameChange: (id: string, name: string) => void;
   onViewCreature: (creatureId: string) => void;
+  onRemove: (id: string) => void;
   linkedCreature?: Creature;
-  characters: CombatCharacter[];
+  characters: Character[];
 }
 
-function SortableCreature({ creature, onInitiativeChange, onNameChange, onViewCreature, linkedCreature, characters }: SortableCreatureProps) {
-  const { attributes, listeners, setNodeRef, transform, transition } = useSortable({ id: creature.id });
+function SortableEntry({ entry, onInitiativeChange, onNameChange, onViewCreature, onRemove, linkedCreature, characters }: SortableEntryProps) {
+  const { attributes, listeners, setNodeRef, transform, transition } = useSortable({ id: entry.id });
   const style = { transform: CSS.Transform.toString(transform), transition };
   const [isEditing, setIsEditing] = useState(false);
-  const [editName, setEditName] = useState(creature.name);
+  const [editName, setEditName] = useState(entry.custom_name || '');
 
   const handleSaveName = () => {
-    onNameChange(creature.id, editName);
+    onNameChange(entry.id, editName);
     setIsEditing(false);
   };
 
-  // Get player name if it's a player character
   const getPlayerName = () => {
-    if (creature.isPlayer && creature.characterId) {
-      const char = characters.find(c => c.id === creature.characterId);
+    if (entry.is_player && entry.character_id) {
+      const char = characters.find(c => c.id === entry.character_id);
       return char?.name || null;
     }
     return null;
   };
 
   const playerName = getPlayerName();
+  const displayName = entry.custom_name || 'Criatura';
 
   return (
-    <div ref={setNodeRef} style={style} className={`flex items-center gap-3 p-3 rounded-lg border ${creature.isPlayer ? 'bg-primary/5 border-primary/20' : 'bg-card'}`}>
+    <div ref={setNodeRef} style={style} className={`flex items-center gap-3 p-3 rounded-lg border ${entry.is_player ? 'bg-primary/5 border-primary/20' : 'bg-card'}`}>
       <button {...attributes} {...listeners} className="cursor-grab">
         <GripVertical className="h-4 w-4 text-muted-foreground" />
       </button>
@@ -92,12 +88,12 @@ function SortableCreature({ creature, onInitiativeChange, onNameChange, onViewCr
           ) : (
             <span 
               className="font-semibold cursor-pointer hover:underline" 
-              onClick={() => !creature.isPlayer && setIsEditing(true)}
+              onClick={() => !entry.is_player && setIsEditing(true)}
             >
-              {creature.name}
+              {displayName}
             </span>
           )}
-          {creature.isPlayer && <Badge variant="secondary" className="text-xs">Jogador</Badge>}
+          {entry.is_player && <Badge variant="secondary" className="text-xs">Jogador</Badge>}
           {linkedCreature && (
             <Button 
               size="sm" 
@@ -110,7 +106,7 @@ function SortableCreature({ creature, onInitiativeChange, onNameChange, onViewCr
           )}
         </div>
         <div className="text-sm text-muted-foreground">
-          PV: {creature.hp}/{creature.maxHp} | CA: {creature.ac}
+          PV: {entry.hp_current}/{entry.hp_max} | CA: 10
           {playerName && <span className="ml-2">• Controlado por: {playerName}</span>}
         </div>
       </div>
@@ -119,11 +115,13 @@ function SortableCreature({ creature, onInitiativeChange, onNameChange, onViewCr
         <Input 
           type="number" 
           className="w-16 h-8 text-center" 
-          value={creature.initiative} 
-          onChange={(e) => onInitiativeChange(creature.id, parseInt(e.target.value) || 0)}
+          value={entry.initiative} 
+          onChange={(e) => onInitiativeChange(entry.id, parseInt(e.target.value) || 0)}
         />
       </div>
-      <Button size="sm" variant="outline">Atacar</Button>
+      <Button size="sm" variant="ghost" onClick={() => onRemove(entry.id)}>
+        <Trash2 className="h-4 w-4 text-destructive" />
+      </Button>
     </div>
   );
 }
@@ -132,35 +130,223 @@ interface GMCombatTabProps {
   campaignId: string;
   system: SystemType;
   avgLevelRounded: number;
-  creatures: EncounterCreature[];
-  setCreatures: React.Dispatch<React.SetStateAction<EncounterCreature[]>>;
-  characters: CombatCharacter[];
+  characters: Character[];
 }
 
 export function GMCombatTab({ 
   campaignId, 
   system, 
   avgLevelRounded, 
-  creatures, 
-  setCreatures,
   characters
 }: GMCombatTabProps) {
+  const queryClient = useQueryClient();
   const [isAutoCompleteOpen, setIsAutoCompleteOpen] = useState(false);
   const [creatureCount, setCreatureCount] = useState(1);
   const [distributionMode, setDistributionMode] = useState<'fixed' | 'random'>('fixed');
   const [excludedCreatures, setExcludedCreatures] = useState<string[]>([]);
   const [suggestions, setSuggestions] = useState<Creature[]>([]);
   const [selectedCreature, setSelectedCreature] = useState<Creature | null>(null);
+  const [addDialogOpen, setAddDialogOpen] = useState(false);
+  const [searchTerm, setSearchTerm] = useState('');
 
   const sensors = useSensors(
     useSensor(PointerSensor), 
     useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates })
   );
 
+  // Fetch or create active encounter
+  const { data: encounter, isLoading: loadingEncounter } = useQuery({
+    queryKey: ['active-encounter', campaignId],
+    queryFn: async () => {
+      // Try to find existing active encounter
+      const { data: existing, error } = await supabase
+        .from('combat_encounters')
+        .select('*')
+        .eq('campaign_id', campaignId)
+        .eq('is_active', true)
+        .maybeSingle();
+
+      if (error) throw error;
+      if (existing) return existing as CombatEncounter;
+
+      // Create new encounter if none exists
+      const { data: created, error: createError } = await supabase
+        .from('combat_encounters')
+        .insert({
+          campaign_id: campaignId,
+          name: 'Encontro Atual',
+          is_active: true,
+          round_number: 1,
+          current_turn: 0,
+        })
+        .select()
+        .single();
+
+      if (createError) throw createError;
+      return created as CombatEncounter;
+    },
+  });
+
+  // Fetch encounter entries
+  const { data: entries = [], isLoading: loadingEntries } = useQuery({
+    queryKey: ['encounter-entries', encounter?.id],
+    queryFn: async () => {
+      if (!encounter?.id) return [];
+
+      const { data, error } = await supabase
+        .from('encounter_entries')
+        .select('*')
+        .eq('encounter_id', encounter.id)
+        .order('sort_order', { ascending: true });
+
+      if (error) throw error;
+      return data as EncounterEntry[];
+    },
+    enabled: !!encounter?.id,
+  });
+
+  // Add entry mutation
+  const addEntry = useMutation({
+    mutationFn: async (creature: Creature) => {
+      if (!encounter?.id) throw new Error('No active encounter');
+
+      const existingCount = entries.filter(e => 
+        e.custom_name?.startsWith(creature.name)
+      ).length;
+
+      const { data, error } = await supabase
+        .from('encounter_entries')
+        .insert({
+          encounter_id: encounter.id,
+          custom_name: existingCount > 0 
+            ? `${creature.name} ${String.fromCharCode(65 + existingCount)}`
+            : creature.name,
+          initiative: 0,
+          hp_current: creature.hp,
+          hp_max: creature.maxHp,
+          is_player: false,
+          sort_order: entries.length,
+        })
+        .select()
+        .single();
+
+      if (error) throw error;
+      return data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['encounter-entries', encounter?.id] });
+      toast.success('Criatura adicionada!');
+      setAddDialogOpen(false);
+      setSearchTerm('');
+    },
+    onError: (error: any) => {
+      console.error('Error adding entry:', error);
+      toast.error('Erro ao adicionar criatura.');
+    },
+  });
+
+  // Add character to encounter
+  const addCharacterEntry = useMutation({
+    mutationFn: async (character: Character) => {
+      if (!encounter?.id) throw new Error('No active encounter');
+
+      // Check if character is already in encounter
+      const existing = entries.find(e => e.character_id === character.id);
+      if (existing) {
+        throw new Error('Personagem já está no encontro');
+      }
+
+      const { data, error } = await supabase
+        .from('encounter_entries')
+        .insert({
+          encounter_id: encounter.id,
+          character_id: character.id,
+          custom_name: character.name,
+          initiative: 0,
+          hp_current: character.hp_current || 10,
+          hp_max: character.hp_max || 10,
+          is_player: true,
+          sort_order: entries.length,
+        })
+        .select()
+        .single();
+
+      if (error) throw error;
+      return data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['encounter-entries', encounter?.id] });
+      toast.success('Personagem adicionado!');
+    },
+    onError: (error: Error) => {
+      toast.error(error.message);
+    },
+  });
+
+  // Update entry mutation
+  const updateEntry = useMutation({
+    mutationFn: async ({ id, updates }: { id: string; updates: Partial<EncounterEntry> }) => {
+      const { error } = await supabase
+        .from('encounter_entries')
+        .update(updates)
+        .eq('id', id);
+
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['encounter-entries', encounter?.id] });
+    },
+  });
+
+  // Remove entry mutation
+  const removeEntry = useMutation({
+    mutationFn: async (id: string) => {
+      const { error } = await supabase
+        .from('encounter_entries')
+        .delete()
+        .eq('id', id);
+
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['encounter-entries', encounter?.id] });
+      toast.success('Entrada removida!');
+    },
+    onError: (error: any) => {
+      console.error('Error removing entry:', error);
+      toast.error('Erro ao remover entrada.');
+    },
+  });
+
+  // Reorder entries mutation
+  const reorderEntries = useMutation({
+    mutationFn: async (newOrder: EncounterEntry[]) => {
+      const updates = newOrder.map((entry, index) => 
+        supabase
+          .from('encounter_entries')
+          .update({ sort_order: index })
+          .eq('id', entry.id)
+      );
+
+      await Promise.all(updates);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['encounter-entries', encounter?.id] });
+    },
+  });
+
   // Get creatures for current system
   const systemCreatures = useMemo(() => {
     return creatureCatalog.filter(c => c.system === system);
   }, [system]);
+
+  // Filtered creatures for search
+  const filteredCreatures = useMemo(() => {
+    if (!searchTerm) return systemCreatures.slice(0, 20);
+    return systemCreatures.filter(c => 
+      c.name.toLowerCase().includes(searchTerm.toLowerCase())
+    ).slice(0, 20);
+  }, [systemCreatures, searchTerm]);
 
   // Pool of available creatures (excluding excluded ones)
   const availablePool = useMemo(() => {
@@ -170,24 +356,24 @@ export function GMCombatTab({
   const handleDragEnd = (event: DragEndEvent) => {
     const { active, over } = event;
     if (over && active.id !== over.id) {
-      setCreatures((items) => {
-        const oldIndex = items.findIndex(i => i.id === active.id);
-        const newIndex = items.findIndex(i => i.id === over.id);
-        return arrayMove(items, oldIndex, newIndex);
-      });
+      const oldIndex = entries.findIndex(i => i.id === active.id);
+      const newIndex = entries.findIndex(i => i.id === over.id);
+      const newOrder = arrayMove(entries, oldIndex, newIndex);
+      reorderEntries.mutate(newOrder);
     }
   };
 
   const handleInitiativeChange = (id: string, value: number) => {
-    setCreatures(prev => prev.map(c => c.id === id ? { ...c, initiative: value } : c));
+    updateEntry.mutate({ id, updates: { initiative: value } });
   };
 
   const handleNameChange = (id: string, name: string) => {
-    setCreatures(prev => prev.map(c => c.id === id ? { ...c, name } : c));
+    updateEntry.mutate({ id, updates: { custom_name: name } });
   };
 
   const handleSortByInitiative = () => {
-    setCreatures(prev => [...prev].sort((a, b) => b.initiative - a.initiative));
+    const sorted = [...entries].sort((a, b) => b.initiative - a.initiative);
+    reorderEntries.mutate(sorted);
     toast.success('Ordenado por iniciativa!');
   };
 
@@ -202,11 +388,9 @@ export function GMCombatTab({
     const result: Creature[] = [];
 
     if (distributionMode === 'fixed') {
-      // Fixed distribution: divide total evenly
       const threatPerCreature = Math.max(1, Math.floor(targetTotal / creatureCount));
       
       for (let i = 0; i < creatureCount; i++) {
-        // Find creature closest to target threat
         const candidates = availablePool.filter(c => {
           const cr = typeof c.cr === 'number' ? c.cr : parseFloat(c.cr?.toString() || '0.25');
           return cr <= threatPerCreature + 1;
@@ -218,7 +402,6 @@ export function GMCombatTab({
         }
       }
     } else {
-      // Random distribution: random combinations that sum to total
       let remainingThreat = targetTotal;
       let attempts = 0;
       
@@ -248,23 +431,12 @@ export function GMCombatTab({
     setSuggestions(prev => prev.filter((_, i) => i !== index));
   };
 
-  const addSuggestionsToEncounter = () => {
-    const newCreatures: EncounterCreature[] = suggestions.map((c, index) => ({
-      id: `ec-${Date.now()}-${index}`,
-      name: `${c.name} ${String.fromCharCode(65 + index)}`,
-      initiative: 0,
-      hp: c.hp,
-      maxHp: c.maxHp,
-      ac: c.ac,
-      conditions: [],
-      isPlayer: false,
-      linkedCreatureId: c.id,
-    }));
-
-    setCreatures(prev => [...prev, ...newCreatures]);
+  const addSuggestionsToEncounter = async () => {
+    for (const creature of suggestions) {
+      await addEntry.mutateAsync(creature);
+    }
     setSuggestions([]);
     setIsAutoCompleteOpen(false);
-    toast.success('Criaturas adicionadas ao encontro!');
   };
 
   const toggleExcludeCreature = (creatureId: string) => {
@@ -275,6 +447,8 @@ export function GMCombatTab({
     );
   };
 
+  const isLoading = loadingEncounter || loadingEntries;
+
   return (
     <div className="space-y-6">
       {/* Initiative Tracker */}
@@ -282,12 +456,81 @@ export function GMCombatTab({
         <CardHeader className="flex flex-row items-center justify-between">
           <CardTitle>Rastreador de Iniciativa</CardTitle>
           <div className="flex gap-2">
-            <Button size="sm" variant="outline" onClick={handleSortByInitiative}>
+            <Button size="sm" variant="outline" onClick={handleSortByInitiative} disabled={entries.length === 0}>
               <ArrowUpDown className="h-4 w-4 mr-1" />Organizar
             </Button>
-            <Button size="sm">
-              <Plus className="h-4 w-4 mr-1" />Adicionar
-            </Button>
+            <Dialog open={addDialogOpen} onOpenChange={setAddDialogOpen}>
+              <DialogTrigger asChild>
+                <Button size="sm">
+                  <Plus className="h-4 w-4 mr-1" />Adicionar
+                </Button>
+              </DialogTrigger>
+              <DialogContent className="max-w-lg">
+                <DialogHeader>
+                  <DialogTitle>Adicionar ao Encontro</DialogTitle>
+                </DialogHeader>
+                
+                {/* Character section */}
+                {characters.length > 0 && (
+                  <div className="mb-4">
+                    <Label className="text-sm font-medium mb-2 block">Personagens dos Jogadores</Label>
+                    <div className="grid grid-cols-2 gap-2">
+                      {characters.map(char => {
+                        const isInEncounter = entries.some(e => e.character_id === char.id);
+                        return (
+                          <Button
+                            key={char.id}
+                            variant={isInEncounter ? 'secondary' : 'outline'}
+                            size="sm"
+                            className="justify-start"
+                            disabled={isInEncounter || addCharacterEntry.isPending}
+                            onClick={() => addCharacterEntry.mutate(char)}
+                          >
+                            {char.name}
+                            {isInEncounter && <Badge variant="secondary" className="ml-2 text-xs">No encontro</Badge>}
+                          </Button>
+                        );
+                      })}
+                    </div>
+                  </div>
+                )}
+
+                {/* Creature search */}
+                <div>
+                  <Label className="text-sm font-medium mb-2 block">Criaturas do Sistema</Label>
+                  <Input
+                    placeholder="Buscar criatura..."
+                    value={searchTerm}
+                    onChange={(e) => setSearchTerm(e.target.value)}
+                    className="mb-2"
+                  />
+                  <ScrollArea className="h-48 border rounded-md">
+                    <div className="p-2 space-y-1">
+                      {filteredCreatures.map(c => (
+                        <Button
+                          key={c.id}
+                          variant="ghost"
+                          size="sm"
+                          className="w-full justify-between"
+                          onClick={() => addEntry.mutate(c)}
+                          disabled={addEntry.isPending}
+                        >
+                          <span>{c.name}</span>
+                          <span className="text-muted-foreground text-xs">
+                            CR {c.cr} | PV {c.hp}
+                          </span>
+                        </Button>
+                      ))}
+                      {filteredCreatures.length === 0 && (
+                        <p className="text-center text-muted-foreground py-4">
+                          Nenhuma criatura encontrada.
+                        </p>
+                      )}
+                    </div>
+                  </ScrollArea>
+                </div>
+              </DialogContent>
+            </Dialog>
           </div>
         </CardHeader>
         <CardContent>
@@ -295,27 +538,36 @@ export function GMCombatTab({
             Arraste para reordenar ou clique em "Organizar" para ordenar por iniciativa. 
             Clique no nome de criaturas para renomear.
           </p>
-          <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
-            <SortableContext items={creatures.map(c => c.id)} strategy={verticalListSortingStrategy}>
-              <div className="space-y-2">
-                {creatures.map(creature => {
-                  const linked = creatureCatalog.find(c => c.id === (creature as any).linkedCreatureId);
-                  return (
-                    <SortableCreature 
-                      key={creature.id} 
-                      creature={creature} 
-                      onInitiativeChange={handleInitiativeChange}
-                      onNameChange={handleNameChange}
-                      onViewCreature={(id) => setSelectedCreature(creatureCatalog.find(c => c.id === id) || null)}
-                      linkedCreature={linked}
-                      characters={characters}
-                    />
-                  );
-                })}
-              </div>
-            </SortableContext>
-          </DndContext>
-          {creatures.length === 0 && (
+
+          {isLoading ? (
+            <div className="flex items-center justify-center py-8">
+              <Loader2 className="h-6 w-6 animate-spin text-primary" />
+            </div>
+          ) : (
+            <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
+              <SortableContext items={entries.map(e => e.id)} strategy={verticalListSortingStrategy}>
+                <div className="space-y-2">
+                  {entries.map(entry => {
+                    const linked = creatureCatalog.find(c => c.name === entry.custom_name?.split(' ')[0]);
+                    return (
+                      <SortableEntry 
+                        key={entry.id} 
+                        entry={entry}
+                        onInitiativeChange={handleInitiativeChange}
+                        onNameChange={handleNameChange}
+                        onViewCreature={(id) => setSelectedCreature(creatureCatalog.find(c => c.id === id) || null)}
+                        onRemove={(id) => removeEntry.mutate(id)}
+                        linkedCreature={linked}
+                        characters={characters}
+                      />
+                    );
+                  })}
+                </div>
+              </SortableContext>
+            </DndContext>
+          )}
+
+          {!isLoading && entries.length === 0 && (
             <p className="text-center text-muted-foreground py-8">
               Nenhum encontro ativo. Use "Autocompletar Desafio" ou adicione criaturas manualmente.
             </p>
@@ -400,8 +652,12 @@ export function GMCombatTab({
             <div className="mt-4 border rounded-md p-4 bg-muted/30">
               <div className="flex items-center justify-between mb-3">
                 <h4 className="font-semibold">Sugestões Geradas</h4>
-                <Button size="sm" onClick={addSuggestionsToEncounter}>
-                  <Plus className="h-4 w-4 mr-1" />
+                <Button size="sm" onClick={addSuggestionsToEncounter} disabled={addEntry.isPending}>
+                  {addEntry.isPending ? (
+                    <Loader2 className="h-4 w-4 mr-1 animate-spin" />
+                  ) : (
+                    <Plus className="h-4 w-4 mr-1" />
+                  )}
                   Adicionar ao Encontro
                 </Button>
               </div>
