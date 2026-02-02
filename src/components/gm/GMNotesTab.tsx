@@ -5,8 +5,10 @@ import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter } from '@/components/ui/dialog';
-import { Plus, Edit, Trash2, FileText, Clock } from 'lucide-react';
+import { Plus, Edit, Trash2, FileText, Clock, Loader2 } from 'lucide-react';
 import { toast } from 'sonner';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { supabase } from '@/integrations/supabase/client';
 
 export interface GMNote {
   id: string;
@@ -23,88 +25,103 @@ interface GMNotesTabProps {
   setNotes: React.Dispatch<React.SetStateAction<GMNote[]>>;
 }
 
-const STORAGE_KEY = 'mesahub_gm_notes';
-
-export function GMNotesTab({ campaignId, notes, setNotes }: GMNotesTabProps) {
+export function GMNotesTab({ campaignId }: GMNotesTabProps) {
+  const queryClient = useQueryClient();
   const [isAddOpen, setIsAddOpen] = useState(false);
   const [editingNote, setEditingNote] = useState<GMNote | null>(null);
   const [noteTitle, setNoteTitle] = useState('');
   const [noteContent, setNoteContent] = useState('');
 
-  // Load notes from localStorage on mount
-  useEffect(() => {
-    const stored = localStorage.getItem(STORAGE_KEY);
-    if (stored) {
-      try {
-        const allNotes: GMNote[] = JSON.parse(stored);
-        const campaignNotes = allNotes.filter(n => n.campaignId === campaignId);
-        setNotes(campaignNotes);
-      } catch (e) {
-        console.error('Failed to load notes from localStorage');
-      }
-    }
-  }, [campaignId, setNotes]);
+  // Fetch notes from Supabase
+  const { data: notes = [], isLoading } = useQuery({
+    queryKey: ['gm-notes', campaignId],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('gm_notes')
+        .select('*')
+        .eq('campaign_id', campaignId)
+        .order('updated_at', { ascending: false });
+      if (error) throw error;
+      return data.map(n => ({
+        id: n.id,
+        campaignId: n.campaign_id,
+        title: n.title || '',
+        content: n.content,
+        createdAt: n.created_at,
+        updatedAt: n.updated_at,
+      })) as GMNote[];
+    },
+    enabled: !!campaignId,
+  });
 
-  // Save notes to localStorage whenever they change
-  useEffect(() => {
-    const stored = localStorage.getItem(STORAGE_KEY);
-    let allNotes: GMNote[] = [];
-    
-    if (stored) {
-      try {
-        allNotes = JSON.parse(stored);
-      } catch (e) {}
-    }
+  // Add note mutation
+  const addMutation = useMutation({
+    mutationFn: async () => {
+      const { error } = await supabase
+        .from('gm_notes')
+        .insert({
+          campaign_id: campaignId,
+          title: noteTitle || 'Nota sem título',
+          content: noteContent,
+        });
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      toast.success('Anotação criada!');
+      queryClient.invalidateQueries({ queryKey: ['gm-notes', campaignId] });
+      setIsAddOpen(false);
+      resetForm();
+    },
+    onError: () => {
+      toast.error('Erro ao criar anotação.');
+    },
+  });
 
-    // Remove old notes for this campaign and add current ones
-    allNotes = allNotes.filter(n => n.campaignId !== campaignId);
-    allNotes = [...allNotes, ...notes];
-    
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(allNotes));
-  }, [notes, campaignId]);
+  // Update note mutation
+  const updateMutation = useMutation({
+    mutationFn: async () => {
+      if (!editingNote) return;
+      const { error } = await supabase
+        .from('gm_notes')
+        .update({
+          title: noteTitle || 'Nota sem título',
+          content: noteContent,
+        })
+        .eq('id', editingNote.id);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      toast.success('Anotação atualizada!');
+      queryClient.invalidateQueries({ queryKey: ['gm-notes', campaignId] });
+      setEditingNote(null);
+      resetForm();
+    },
+    onError: () => {
+      toast.error('Erro ao atualizar anotação.');
+    },
+  });
+
+  // Delete note mutation
+  const deleteMutation = useMutation({
+    mutationFn: async (noteId: string) => {
+      const { error } = await supabase
+        .from('gm_notes')
+        .delete()
+        .eq('id', noteId);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      toast.success('Anotação excluída!');
+      queryClient.invalidateQueries({ queryKey: ['gm-notes', campaignId] });
+    },
+    onError: () => {
+      toast.error('Erro ao excluir anotação.');
+    },
+  });
 
   const resetForm = () => {
     setNoteTitle('');
     setNoteContent('');
-  };
-
-  const handleAdd = () => {
-    const newNote: GMNote = {
-      id: `note-${Date.now()}`,
-      campaignId,
-      title: noteTitle || 'Nota sem título',
-      content: noteContent,
-      createdAt: new Date().toISOString(),
-      updatedAt: new Date().toISOString(),
-    };
-
-    setNotes(prev => [newNote, ...prev]);
-    setIsAddOpen(false);
-    resetForm();
-    toast.success('Anotação criada!');
-  };
-
-  const handleEdit = () => {
-    if (!editingNote) return;
-
-    setNotes(prev => prev.map(n => 
-      n.id === editingNote.id 
-        ? { 
-            ...n, 
-            title: noteTitle || 'Nota sem título', 
-            content: noteContent, 
-            updatedAt: new Date().toISOString() 
-          } 
-        : n
-    ));
-    setEditingNote(null);
-    resetForm();
-    toast.success('Anotação atualizada!');
-  };
-
-  const handleDelete = (noteId: string) => {
-    setNotes(prev => prev.filter(n => n.id !== noteId));
-    toast.success('Anotação excluída!');
   };
 
   const openEdit = (note: GMNote) => {
@@ -126,6 +143,14 @@ export function GMNotesTab({ campaignId, notes, setNotes }: GMNotesTabProps) {
       return dateStr;
     }
   };
+
+  if (isLoading) {
+    return (
+      <div className="flex items-center justify-center py-8">
+        <Loader2 className="h-6 w-6 animate-spin text-primary" />
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-4">
@@ -168,8 +193,8 @@ export function GMNotesTab({ campaignId, notes, setNotes }: GMNotesTabProps) {
               <Button variant="outline" onClick={() => { setIsAddOpen(false); resetForm(); }}>
                 Cancelar
               </Button>
-              <Button onClick={handleAdd}>
-                Salvar
+              <Button onClick={() => addMutation.mutate()} disabled={addMutation.isPending}>
+                {addMutation.isPending ? 'Salvando...' : 'Salvar'}
               </Button>
             </DialogFooter>
           </DialogContent>
@@ -205,8 +230,8 @@ export function GMNotesTab({ campaignId, notes, setNotes }: GMNotesTabProps) {
             <Button variant="outline" onClick={() => { setEditingNote(null); resetForm(); }}>
               Cancelar
             </Button>
-            <Button onClick={handleEdit}>
-              Salvar Alterações
+            <Button onClick={() => updateMutation.mutate()} disabled={updateMutation.isPending}>
+              {updateMutation.isPending ? 'Salvando...' : 'Salvar Alterações'}
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -237,7 +262,8 @@ export function GMNotesTab({ campaignId, notes, setNotes }: GMNotesTabProps) {
                       size="sm" 
                       variant="ghost" 
                       className="text-destructive hover:text-destructive"
-                      onClick={() => handleDelete(note.id)}
+                      onClick={() => deleteMutation.mutate(note.id)}
+                      disabled={deleteMutation.isPending}
                     >
                       <Trash2 className="h-4 w-4" />
                     </Button>
