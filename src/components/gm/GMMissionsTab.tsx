@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -7,9 +7,24 @@ import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter } from '@/components/ui/dialog';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Plus, Edit, Check, Target, CheckCircle } from 'lucide-react';
+import { Plus, Edit, Check, Target, CheckCircle, Loader2 } from 'lucide-react';
 import { toast } from 'sonner';
-import { Mission } from '@/data/mockData';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { supabase } from '@/integrations/supabase/client';
+
+// Simplified mission interface
+interface Mission {
+  id: string;
+  campaignId: string;
+  title: string;
+  description: string;
+  status: 'active' | 'completed';
+  notes: string;
+  objectives?: string[];
+  rewards?: string;
+  createdAt: string;
+  completedAt?: string | null;
+}
 
 interface GMMissionsTabProps {
   campaignId: string;
@@ -17,9 +32,8 @@ interface GMMissionsTabProps {
   setMissions: React.Dispatch<React.SetStateAction<Mission[]>>;
 }
 
-const STORAGE_KEY = 'mesahub_missions';
-
-export function GMMissionsTab({ campaignId, missions, setMissions }: GMMissionsTabProps) {
+export function GMMissionsTab({ campaignId }: GMMissionsTabProps) {
+  const queryClient = useQueryClient();
   const [isAddOpen, setIsAddOpen] = useState(false);
   const [editingMission, setEditingMission] = useState<Mission | null>(null);
   const [missionTitle, setMissionTitle] = useState('');
@@ -28,96 +42,112 @@ export function GMMissionsTab({ campaignId, missions, setMissions }: GMMissionsT
   const [missionRewards, setMissionRewards] = useState('');
   const [viewTab, setViewTab] = useState('active');
 
-  // Load from localStorage on mount
-  useEffect(() => {
-    const stored = localStorage.getItem(STORAGE_KEY);
-    if (stored) {
-      try {
-        const allMissions: Mission[] = JSON.parse(stored);
-        const campaignMissions = allMissions.filter(m => m.campaignId === campaignId);
-        if (campaignMissions.length > 0) {
-          setMissions(campaignMissions);
-        }
-      } catch (e) {
-        console.error('Failed to load missions from localStorage');
-      }
-    }
-  }, [campaignId, setMissions]);
+  // Fetch missions from Supabase
+  const { data: missions = [], isLoading } = useQuery({
+    queryKey: ['gm-missions', campaignId],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('missions')
+        .select('*')
+        .eq('campaign_id', campaignId)
+        .order('created_at', { ascending: false });
+      if (error) throw error;
+      return data.map(m => ({
+        id: m.id,
+        campaignId: m.campaign_id,
+        title: m.title,
+        description: m.description || '',
+        status: m.status as 'active' | 'completed',
+        notes: '',
+        objectives: (m.objectives as string[]) || [],
+        rewards: m.rewards || '',
+        createdAt: m.created_at,
+        completedAt: m.completed_at,
+      })) as Mission[];
+    },
+    enabled: !!campaignId,
+  });
 
-  // Save to localStorage
-  useEffect(() => {
-    const stored = localStorage.getItem(STORAGE_KEY);
-    let allMissions: Mission[] = [];
-    
-    if (stored) {
-      try {
-        allMissions = JSON.parse(stored);
-      } catch (e) {}
-    }
+  // Add mission mutation
+  const addMutation = useMutation({
+    mutationFn: async () => {
+      const { error } = await supabase
+        .from('missions')
+        .insert({
+          campaign_id: campaignId,
+          title: missionTitle,
+          description: missionDesc,
+          objectives: missionObjectives.split('\n').filter(Boolean),
+          rewards: missionRewards,
+          status: 'active',
+        });
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      toast.success('Missão criada!');
+      queryClient.invalidateQueries({ queryKey: ['gm-missions', campaignId] });
+      setIsAddOpen(false);
+      resetForm();
+    },
+    onError: () => {
+      toast.error('Erro ao criar missão.');
+    },
+  });
 
-    allMissions = allMissions.filter(m => m.campaignId !== campaignId);
-    allMissions = [...allMissions, ...missions];
-    
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(allMissions));
-  }, [missions, campaignId]);
+  // Update mission mutation
+  const updateMutation = useMutation({
+    mutationFn: async () => {
+      if (!editingMission) return;
+      const { error } = await supabase
+        .from('missions')
+        .update({
+          title: missionTitle,
+          description: missionDesc,
+          objectives: missionObjectives.split('\n').filter(Boolean),
+          rewards: missionRewards,
+        })
+        .eq('id', editingMission.id);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      toast.success('Missão atualizada!');
+      queryClient.invalidateQueries({ queryKey: ['gm-missions', campaignId] });
+      setEditingMission(null);
+      resetForm();
+    },
+    onError: () => {
+      toast.error('Erro ao atualizar missão.');
+    },
+  });
+
+  // Complete mission mutation
+  const completeMutation = useMutation({
+    mutationFn: async (missionId: string) => {
+      const { error } = await supabase
+        .from('missions')
+        .update({ 
+          status: 'completed',
+          completed_at: new Date().toISOString(),
+        })
+        .eq('id', missionId);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      toast.success('Missão concluída! 🎉');
+      queryClient.invalidateQueries({ queryKey: ['gm-missions', campaignId] });
+      setEditingMission(null);
+      resetForm();
+    },
+    onError: () => {
+      toast.error('Erro ao concluir missão.');
+    },
+  });
 
   const resetForm = () => {
     setMissionTitle('');
     setMissionDesc('');
     setMissionObjectives('');
     setMissionRewards('');
-  };
-
-  const handleAdd = () => {
-    if (!missionTitle.trim()) {
-      toast.error('O título é obrigatório');
-      return;
-    }
-
-    const newMission: Mission = {
-      id: `mission-${Date.now()}`,
-      campaignId,
-      title: missionTitle,
-      description: missionDesc,
-      status: 'active',
-      notes: '',
-      objectives: missionObjectives.split('\n').filter(Boolean),
-      rewards: missionRewards,
-      createdAt: new Date().toISOString(),
-    };
-
-    setMissions(prev => [newMission, ...prev]);
-    setIsAddOpen(false);
-    resetForm();
-    toast.success('Missão criada!');
-  };
-
-  const handleEdit = () => {
-    if (!editingMission) return;
-
-    setMissions(prev => prev.map(m => 
-      m.id === editingMission.id 
-        ? { 
-            ...m, 
-            title: missionTitle, 
-            description: missionDesc,
-            objectives: missionObjectives.split('\n').filter(Boolean),
-            rewards: missionRewards,
-          } 
-        : m
-    ));
-    setEditingMission(null);
-    resetForm();
-    toast.success('Missão atualizada!');
-  };
-
-  const handleComplete = (missionId: string) => {
-    setMissions(prev => prev.map(m => 
-      m.id === missionId ? { ...m, status: 'completed' as const } : m
-    ));
-    setEditingMission(null);
-    resetForm();
-    toast.success('Missão concluída! 🎉');
   };
 
   const openEdit = (mission: Mission) => {
@@ -130,6 +160,14 @@ export function GMMissionsTab({ campaignId, missions, setMissions }: GMMissionsT
 
   const activeMissions = missions.filter(m => m.status === 'active');
   const completedMissions = missions.filter(m => m.status === 'completed');
+
+  if (isLoading) {
+    return (
+      <div className="flex items-center justify-center py-8">
+        <Loader2 className="h-6 w-6 animate-spin text-primary" />
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-4">
@@ -187,8 +225,11 @@ export function GMMissionsTab({ campaignId, missions, setMissions }: GMMissionsT
               <Button variant="outline" onClick={() => { setIsAddOpen(false); resetForm(); }}>
                 Cancelar
               </Button>
-              <Button onClick={handleAdd}>
-                Criar Missão
+              <Button 
+                onClick={() => addMutation.mutate()} 
+                disabled={!missionTitle.trim() || addMutation.isPending}
+              >
+                {addMutation.isPending ? 'Criando...' : 'Criar Missão'}
               </Button>
             </DialogFooter>
           </DialogContent>
@@ -236,7 +277,8 @@ export function GMMissionsTab({ campaignId, missions, setMissions }: GMMissionsT
               <Button 
                 variant="outline" 
                 className="text-green-600 border-green-600 hover:bg-green-50"
-                onClick={() => editingMission && handleComplete(editingMission.id)}
+                onClick={() => editingMission && completeMutation.mutate(editingMission.id)}
+                disabled={completeMutation.isPending}
               >
                 <CheckCircle className="h-4 w-4 mr-1" />
                 Concluir Missão
@@ -246,8 +288,8 @@ export function GMMissionsTab({ campaignId, missions, setMissions }: GMMissionsT
               <Button variant="outline" onClick={() => { setEditingMission(null); resetForm(); }}>
                 Cancelar
               </Button>
-              <Button onClick={handleEdit}>
-                Salvar
+              <Button onClick={() => updateMutation.mutate()} disabled={updateMutation.isPending}>
+                {updateMutation.isPending ? 'Salvando...' : 'Salvar'}
               </Button>
             </div>
           </DialogFooter>
@@ -298,7 +340,8 @@ export function GMMissionsTab({ campaignId, missions, setMissions }: GMMissionsT
                           size="sm" 
                           variant="ghost" 
                           className="text-green-600"
-                          onClick={() => handleComplete(m.id)}
+                          onClick={() => completeMutation.mutate(m.id)}
+                          disabled={completeMutation.isPending}
                         >
                           <Check className="h-4 w-4" />
                         </Button>
