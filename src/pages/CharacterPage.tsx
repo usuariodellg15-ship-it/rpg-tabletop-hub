@@ -113,6 +113,7 @@ export default function CharacterPage() {
   const system: SystemType = campaign?.system || '5e';
   const is5e = system === '5e';
   const isHorror = system === 'horror';
+  const isAutoral = system === 'olho_da_morte';
 
   // State for editable values
   const [hp, setHp] = useState(character?.hp_current || 0);
@@ -151,6 +152,7 @@ export default function CharacterPage() {
         { key: 'Tamanho', label: 'TAM', value: attrs['Tamanho'] || 50 },
       ];
     }
+    // Olho da Morte / Autoral system
     return [
       { key: 'Força', label: 'FOR', value: attrs['Força'] || 10 },
       { key: 'Agilidade', label: 'AGI', value: attrs['Agilidade'] || 10 },
@@ -159,7 +161,7 @@ export default function CharacterPage() {
       { key: 'Vontade', label: 'VON', value: attrs['Vontade'] || 10 },
       { key: 'Presença', label: 'PRE', value: attrs['Presença'] || 10 },
     ];
-  }, [character, is5e, isHorror]);
+  }, [character, is5e, isHorror, isAutoral]);
 
   const [attributes, setAttributes] = useState(getInitialAttributes());
 
