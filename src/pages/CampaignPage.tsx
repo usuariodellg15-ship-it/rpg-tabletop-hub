@@ -132,7 +132,8 @@ export default function CampaignPage() {
 
   const isGM = campaign?.gm_id === user?.id;
   const pendingMembers = memberships.filter(m => m.status === 'pending');
-  const approvedMembers = memberships.filter(m => m.status === 'approved');
+  // Filter out the GM from approved members to avoid duplication (GM is shown separately)
+  const approvedMembers = memberships.filter(m => m.status === 'approved' && m.user_id !== campaign?.gm_id);
   const hasCharacter = characters.some(c => c.user_id === user?.id);
 
   const getSystemName = (system: string) => {

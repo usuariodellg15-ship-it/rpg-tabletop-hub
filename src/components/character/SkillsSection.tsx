@@ -50,21 +50,22 @@ const SKILLS_5E: Omit<Skill, 'attributeValue' | 'isProficient' | 'extraBonus'>[]
   { id: 'animal_handling', name: 'Adestrar Animais', attribute: 'SAB' },
 ];
 
+// Olho da Morte usa mesmos atributos do D&D (FOR, DES, CON, INT, SAB, CAR)
 const SKILLS_AUTORAL: Omit<Skill, 'attributeValue' | 'isProficient' | 'extraBonus'>[] = [
   { id: 'combate', name: 'Combate', attribute: 'FOR' },
-  { id: 'pontaria', name: 'Pontaria', attribute: 'AGI' },
-  { id: 'reflexos', name: 'Reflexos', attribute: 'AGI' },
-  { id: 'furtividade', name: 'Furtividade', attribute: 'AGI' },
-  { id: 'resistencia', name: 'Resistência', attribute: 'VIG' },
-  { id: 'percepcao', name: 'Percepção', attribute: 'INT' },
+  { id: 'pontaria', name: 'Pontaria', attribute: 'DES' },
+  { id: 'reflexos', name: 'Reflexos', attribute: 'DES' },
+  { id: 'furtividade', name: 'Furtividade', attribute: 'DES' },
+  { id: 'resistencia', name: 'Resistência', attribute: 'CON' },
+  { id: 'percepcao', name: 'Percepção', attribute: 'SAB' },
   { id: 'investigacao', name: 'Investigação', attribute: 'INT' },
   { id: 'conhecimento', name: 'Conhecimento', attribute: 'INT' },
-  { id: 'sobrevivencia', name: 'Sobrevivência', attribute: 'INT' },
-  { id: 'intimidacao', name: 'Intimidação', attribute: 'PRE' },
-  { id: 'persuasao', name: 'Persuasão', attribute: 'PRE' },
-  { id: 'enganacao', name: 'Enganação', attribute: 'PRE' },
-  { id: 'vontade', name: 'Vontade', attribute: 'VON' },
-  { id: 'ocultismo', name: 'Ocultismo', attribute: 'VON' },
+  { id: 'sobrevivencia', name: 'Sobrevivência', attribute: 'SAB' },
+  { id: 'intimidacao', name: 'Intimidação', attribute: 'CAR' },
+  { id: 'persuasao', name: 'Persuasão', attribute: 'CAR' },
+  { id: 'enganacao', name: 'Enganação', attribute: 'CAR' },
+  { id: 'vontade', name: 'Vontade', attribute: 'SAB' },
+  { id: 'ocultismo', name: 'Ocultismo', attribute: 'INT' },
 ];
 
 const SKILLS_HORROR: Omit<Skill, 'attributeValue' | 'isProficient' | 'extraBonus'>[] = [

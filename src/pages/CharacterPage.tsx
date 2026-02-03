@@ -1,4 +1,4 @@
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useEffect, useMemo } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { MainLayout } from '@/components/layout/MainLayout';
 import { useAuth } from '@/contexts/AuthContext';
@@ -125,48 +125,56 @@ export default function CharacterPage() {
   const [acAttr, setAcAttr] = useState(character?.ac ? Math.max(0, (character.ac - 10)) : 0);
   const [acBonus, setAcBonus] = useState(0);
 
-  // Parse attributes from JSON
-  const getInitialAttributes = useCallback(() => {
+  // Parse attributes from JSON - memoized to prevent recalculation
+  const initialAttributes = useMemo(() => {
     if (!character) return [];
     const attrs = (character.attributes as Record<string, number>) || {};
     
     if (is5e) {
       return [
-        { key: 'Força', label: 'FOR', value: attrs['Força'] || 10 },
-        { key: 'Destreza', label: 'DES', value: attrs['Destreza'] || 10 },
-        { key: 'Constituição', label: 'CON', value: attrs['Constituição'] || 10 },
-        { key: 'Inteligência', label: 'INT', value: attrs['Inteligência'] || 10 },
-        { key: 'Sabedoria', label: 'SAB', value: attrs['Sabedoria'] || 10 },
-        { key: 'Carisma', label: 'CAR', value: attrs['Carisma'] || 10 },
+        { key: 'Força', label: 'FOR', value: Number(attrs['Força']) || 10 },
+        { key: 'Destreza', label: 'DES', value: Number(attrs['Destreza']) || 10 },
+        { key: 'Constituição', label: 'CON', value: Number(attrs['Constituição']) || 10 },
+        { key: 'Inteligência', label: 'INT', value: Number(attrs['Inteligência']) || 10 },
+        { key: 'Sabedoria', label: 'SAB', value: Number(attrs['Sabedoria']) || 10 },
+        { key: 'Carisma', label: 'CAR', value: Number(attrs['Carisma']) || 10 },
       ];
     }
     if (isHorror) {
       return [
-        { key: 'Força', label: 'FOR', value: attrs['Força'] || 50 },
-        { key: 'Destreza', label: 'DES', value: attrs['Destreza'] || 50 },
-        { key: 'Constituição', label: 'CON', value: attrs['Constituição'] || 50 },
-        { key: 'Inteligência', label: 'INT', value: attrs['Inteligência'] || 50 },
-        { key: 'Educação', label: 'EDU', value: attrs['Educação'] || 50 },
-        { key: 'Poder', label: 'POD', value: attrs['Poder'] || 50 },
-        { key: 'Aparência', label: 'APR', value: attrs['Aparência'] || 50 },
-        { key: 'Tamanho', label: 'TAM', value: attrs['Tamanho'] || 50 },
+        { key: 'Força', label: 'FOR', value: Number(attrs['Força']) || 50 },
+        { key: 'Destreza', label: 'DES', value: Number(attrs['Destreza']) || 50 },
+        { key: 'Constituição', label: 'CON', value: Number(attrs['Constituição']) || 50 },
+        { key: 'Inteligência', label: 'INT', value: Number(attrs['Inteligência']) || 50 },
+        { key: 'Educação', label: 'EDU', value: Number(attrs['Educação']) || 50 },
+        { key: 'Poder', label: 'POD', value: Number(attrs['Poder']) || 50 },
+        { key: 'Aparência', label: 'APR', value: Number(attrs['Aparência']) || 50 },
+        { key: 'Tamanho', label: 'TAM', value: Number(attrs['Tamanho']) || 50 },
       ];
     }
-    // Olho da Morte / Autoral system
+    // Olho da Morte - usar mesmos atributos do D&D conforme especificado
     return [
-      { key: 'Força', label: 'FOR', value: attrs['Força'] || 10 },
-      { key: 'Agilidade', label: 'AGI', value: attrs['Agilidade'] || 10 },
-      { key: 'Vigor', label: 'VIG', value: attrs['Vigor'] || 10 },
-      { key: 'Intelecto', label: 'INT', value: attrs['Intelecto'] || 10 },
-      { key: 'Vontade', label: 'VON', value: attrs['Vontade'] || 10 },
-      { key: 'Presença', label: 'PRE', value: attrs['Presença'] || 10 },
+      { key: 'Força', label: 'FOR', value: Number(attrs['Força']) || Number(attrs['Vigor']) || 10 },
+      { key: 'Destreza', label: 'DES', value: Number(attrs['Destreza']) || Number(attrs['Agilidade']) || 10 },
+      { key: 'Constituição', label: 'CON', value: Number(attrs['Constituição']) || Number(attrs['Vigor']) || 10 },
+      { key: 'Inteligência', label: 'INT', value: Number(attrs['Inteligência']) || Number(attrs['Intelecto']) || 10 },
+      { key: 'Sabedoria', label: 'SAB', value: Number(attrs['Sabedoria']) || Number(attrs['Vontade']) || 10 },
+      { key: 'Carisma', label: 'CAR', value: Number(attrs['Carisma']) || Number(attrs['Presença']) || 10 },
     ];
   }, [character, is5e, isHorror, isAutoral]);
 
-  const [attributes, setAttributes] = useState(getInitialAttributes());
+  const [attributes, setAttributes] = useState(initialAttributes);
 
-  // Skills state
-  const getInitialSkills = (): Skill[] => {
+  // Update attributes when character data loads
+  useEffect(() => {
+    if (initialAttributes.length > 0) {
+      setAttributes(initialAttributes);
+    }
+  }, [initialAttributes]);
+
+  // Skills state - also needs to update when attributes change
+  const initialSkills = useMemo((): Skill[] => {
+    if (attributes.length === 0) return [];
     const baseSkills = getSkillsForSystem(system);
     const attrMap = new Map(attributes.map(a => [a.label, a.value]));
     
@@ -176,9 +184,16 @@ export default function CharacterPage() {
       isProficient: false,
       extraBonus: 0,
     }));
-  };
+  }, [system, attributes]);
 
-  const [skills, setSkills] = useState<Skill[]>(getInitialSkills());
+  const [skills, setSkills] = useState<Skill[]>(initialSkills);
+
+  // Update skills when attributes change
+  useEffect(() => {
+    if (initialSkills.length > 0) {
+      setSkills(initialSkills);
+    }
+  }, [initialSkills]);
 
   // Roll log state
   const [rollLog, setRollLog] = useState<{ skill: string; formula: string; result: number }[]>([]);

@@ -7,7 +7,7 @@ import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter } from '@/components/ui/dialog';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Plus, Edit, Check, Target, CheckCircle, Loader2 } from 'lucide-react';
+import { Plus, Edit, Check, Target, CheckCircle, Loader2, Undo2 } from 'lucide-react';
 import { toast } from 'sonner';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
@@ -140,6 +140,29 @@ export function GMMissionsTab({ campaignId }: GMMissionsTabProps) {
     },
     onError: () => {
       toast.error('Erro ao concluir missão.');
+    },
+  });
+
+  // Uncomplete mission mutation
+  const uncompleteMutation = useMutation({
+    mutationFn: async (missionId: string) => {
+      const { error } = await supabase
+        .from('missions')
+        .update({ 
+          status: 'active',
+          completed_at: null,
+        })
+        .eq('id', missionId);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      toast.success('Missão reativada!');
+      queryClient.invalidateQueries({ queryKey: ['gm-missions', campaignId] });
+      setEditingMission(null);
+      resetForm();
+    },
+    onError: () => {
+      toast.error('Erro ao reativar missão.');
     },
   });
 
@@ -284,6 +307,17 @@ export function GMMissionsTab({ campaignId }: GMMissionsTabProps) {
                 Concluir Missão
               </Button>
             )}
+            {editingMission?.status === 'completed' && (
+              <Button 
+                variant="outline" 
+                className="text-orange-600 border-orange-600 hover:bg-orange-50"
+                onClick={() => editingMission && uncompleteMutation.mutate(editingMission.id)}
+                disabled={uncompleteMutation.isPending}
+              >
+                <Undo2 className="h-4 w-4 mr-1" />
+                Desconcluir
+              </Button>
+            )}
             <div className="flex gap-2">
               <Button variant="outline" onClick={() => { setEditingMission(null); resetForm(); }}>
                 Cancelar
@@ -378,6 +412,21 @@ export function GMMissionsTab({ campaignId }: GMMissionsTabProps) {
                           <p className="text-sm text-muted-foreground mb-2">{m.description}</p>
                         )}
                         {m.rewards && <p className="text-xs text-muted-foreground">🎁 {m.rewards}</p>}
+                      </div>
+                      <div className="flex gap-1">
+                        <Button size="sm" variant="ghost" onClick={() => openEdit(m)}>
+                          <Edit className="h-4 w-4" />
+                        </Button>
+                        <Button 
+                          size="sm" 
+                          variant="ghost" 
+                          className="text-orange-600"
+                          onClick={() => uncompleteMutation.mutate(m.id)}
+                          disabled={uncompleteMutation.isPending}
+                          title="Desconcluir missão"
+                        >
+                          <Undo2 className="h-4 w-4" />
+                        </Button>
                       </div>
                     </div>
                   </CardContent>
