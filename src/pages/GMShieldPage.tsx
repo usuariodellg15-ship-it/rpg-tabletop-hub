@@ -20,6 +20,7 @@ import {
   Loader2,
   AlertTriangle,
   Lock,
+  Package,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
@@ -37,6 +38,7 @@ import { GMDashboardTab, CombatStatEvent } from '@/components/gm/GMDashboardTab'
 import { GMCombatTab } from '@/components/gm/GMCombatTab';
 import { GMNotesTab, GMNote } from '@/components/gm/GMNotesTab';
 import { GMMissionsTab } from '@/components/gm/GMMissionsTab';
+import { GMHomebrewTab } from '@/components/gm/GMHomebrewTab';
 import { RollsSidebar } from '@/components/campaign/RollsSidebar';
 
 // Types
@@ -400,6 +402,9 @@ export default function GMShieldPage() {
               <TabsTrigger value="characters">
                 <Users className="h-4 w-4 mr-1" />Personagens
               </TabsTrigger>
+              <TabsTrigger value="homebrew">
+                <Package className="h-4 w-4 mr-1" />Homebrew
+              </TabsTrigger>
             </TabsList>
 
             {/* Dashboard */}
@@ -554,6 +559,14 @@ export default function GMShieldPage() {
                   ))
                 )}
               </div>
+            </TabsContent>
+
+            {/* Homebrew */}
+            <TabsContent value="homebrew">
+              <GMHomebrewTab 
+                campaignId={id!}
+                system={campaign.system}
+              />
             </TabsContent>
           </Tabs>
         </div>

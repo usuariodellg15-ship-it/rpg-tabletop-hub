@@ -112,9 +112,9 @@ export default function CreateCharacterPage() {
 
   const getAttrNames = () => {
     if (is5e) return ['Força', 'Destreza', 'Constituição', 'Inteligência', 'Sabedoria', 'Carisma'];
-    if (isAutoral) return ['Força', 'Agilidade', 'Vigor', 'Intelecto', 'Vontade', 'Presença'];
+    if (isAutoral) return ['Força', 'Destreza', 'Constituição', 'Inteligência', 'Sabedoria', 'Carisma'];
     if (isHorror) return ['Força', 'Destreza', 'Constituição', 'Inteligência', 'Educação', 'Poder', 'Aparência', 'Tamanho'];
-    return [];
+    return ['Força', 'Destreza', 'Constituição', 'Inteligência', 'Sabedoria', 'Carisma'];
   };
 
   const attrNames = getAttrNames();
