@@ -2,7 +2,9 @@ import { useState, useEffect } from 'react';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Sparkles } from 'lucide-react';
-import { SystemType } from '@/data/mockData';
+import type { Database } from '@/integrations/supabase/types';
+
+type SystemType = Database['public']['Enums']['system_type'];
 
 interface AttributeData {
   key: string;
@@ -21,6 +23,10 @@ const getModifier = (value: number, system: SystemType): number => {
   if (system === 'horror') {
     // Horror uses percentile - no modifier
     return 0;
+  }
+  if (system === 'olho_da_morte') {
+    // Olho da Morte uses a different modifier (value based)
+    return Math.floor((value - 10) / 2);
   }
   // D&D style modifier
   return Math.floor((value - 10) / 2);

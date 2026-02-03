@@ -6,7 +6,9 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import { ChevronDown, ChevronUp, Dices, BookOpen } from 'lucide-react';
 import { toast } from 'sonner';
-import { SystemType } from '@/data/mockData';
+import type { Database } from '@/integrations/supabase/types';
+
+type SystemType = Database['public']['Enums']['system_type'];
 
 export interface Skill {
   id: string;
@@ -101,7 +103,7 @@ const SKILLS_HORROR: Omit<Skill, 'attributeValue' | 'isProficient' | 'extraBonus
 const getSkillsForSystem = (system: SystemType) => {
   switch (system) {
     case '5e': return SKILLS_5E;
-    case 'autoral': return SKILLS_AUTORAL;
+    case 'olho_da_morte': return SKILLS_AUTORAL;
     case 'horror': return SKILLS_HORROR;
     default: return SKILLS_5E;
   }
