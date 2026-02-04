@@ -23,6 +23,17 @@ type Campaign = Database['public']['Tables']['campaigns']['Row'];
 type Profile = Database['public']['Tables']['profiles']['Row'];
 type SystemType = Database['public']['Enums']['system_type'];
 
+const toSafeString = (value: unknown, fallback = ''): string => {
+  if (typeof value === 'string') return value;
+  if (typeof value === 'number' || typeof value === 'boolean') return String(value);
+  if (value === null || value === undefined) return fallback;
+  try {
+    return JSON.stringify(value);
+  } catch {
+    return fallback;
+  }
+};
+
 export default function CharacterPage() {
   const { id: characterId } = useParams();
   const { user } = useAuth();
@@ -276,6 +287,11 @@ export default function CharacterPage() {
   const sanity = skills_data.sanity || 50;
   const maxSanity = skills_data.maxSanity || 50;
 
+  const ownerName = toSafeString(owner?.name, 'Desconhecido');
+  const characterName = toSafeString(character.name, 'Sem nome');
+  const characterClass = toSafeString(character.class, 'Sem classe');
+  const characterNotes = toSafeString(character.notes, '');
+
   return (
     <MainLayout>
       <div className="container py-8 max-w-5xl">
@@ -288,14 +304,14 @@ export default function CharacterPage() {
         {/* Header */}
         <div className="flex items-start gap-6 mb-6">
           <Avatar className="h-24 w-24">
-            <AvatarFallback className="text-2xl">{character.name[0]}</AvatarFallback>
+            <AvatarFallback className="text-2xl">{characterName?.[0] || '?'}</AvatarFallback>
           </Avatar>
           <div className="flex-1">
-            <h1 className="text-3xl font-heading font-bold">{character.name}</h1>
+            <h1 className="text-3xl font-heading font-bold">{characterName}</h1>
             <p className="text-lg text-muted-foreground">
-              {character.class || 'Sem classe'} • Nível {character.level || 1}
+              {characterClass || 'Sem classe'} • Nível {character.level || 1}
             </p>
-            <p className="text-sm text-muted-foreground mt-1">Jogador: {owner?.name || 'Desconhecido'}</p>
+            <p className="text-sm text-muted-foreground mt-1">Jogador: {ownerName}</p>
           </div>
           <div className="flex gap-2">
             {isEditable && <Button variant="outline"><Edit className="h-4 w-4 mr-2" />Editar</Button>}
@@ -460,13 +476,13 @@ export default function CharacterPage() {
             </Card>
 
             {/* Notes */}
-            {character.notes && (
+            {characterNotes && (
               <Card className="mt-6">
                 <CardHeader>
                   <CardTitle>Notas</CardTitle>
                 </CardHeader>
                 <CardContent>
-                  <p className="text-muted-foreground">{character.notes}</p>
+                  <p className="text-muted-foreground whitespace-pre-wrap">{characterNotes}</p>
                 </CardContent>
               </Card>
             )}
