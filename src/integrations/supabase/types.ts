@@ -14,6 +14,45 @@ export type Database = {
   }
   public: {
     Tables: {
+      campaign_allowed_items: {
+        Row: {
+          campaign_id: string
+          enabled_at: string
+          id: string
+          item_id: string
+          item_type: string
+        }
+        Insert: {
+          campaign_id: string
+          enabled_at?: string
+          id?: string
+          item_id: string
+          item_type: string
+        }
+        Update: {
+          campaign_id?: string
+          enabled_at?: string
+          id?: string
+          item_id?: string
+          item_type?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "campaign_allowed_items_campaign_id_fkey"
+            columns: ["campaign_id"]
+            isOneToOne: false
+            referencedRelation: "campaigns"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "campaign_allowed_items_campaign_id_fkey"
+            columns: ["campaign_id"]
+            isOneToOne: false
+            referencedRelation: "public_campaigns"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       campaign_homebrews: {
         Row: {
           campaign_id: string
@@ -653,6 +692,107 @@ export type Database = {
           user_id?: string
         }
         Relationships: []
+      }
+      system_abilities: {
+        Row: {
+          class_id: string | null
+          created_at: string
+          description: string | null
+          id: string
+          level_required: number
+          name: string
+          specialization_id: string | null
+        }
+        Insert: {
+          class_id?: string | null
+          created_at?: string
+          description?: string | null
+          id?: string
+          level_required?: number
+          name: string
+          specialization_id?: string | null
+        }
+        Update: {
+          class_id?: string | null
+          created_at?: string
+          description?: string | null
+          id?: string
+          level_required?: number
+          name?: string
+          specialization_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "system_abilities_class_id_fkey"
+            columns: ["class_id"]
+            isOneToOne: false
+            referencedRelation: "system_classes"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "system_abilities_specialization_id_fkey"
+            columns: ["specialization_id"]
+            isOneToOne: false
+            referencedRelation: "system_specializations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      system_classes: {
+        Row: {
+          created_at: string
+          description: string | null
+          id: string
+          name: string
+          system: Database["public"]["Enums"]["system_type"]
+        }
+        Insert: {
+          created_at?: string
+          description?: string | null
+          id?: string
+          name: string
+          system: Database["public"]["Enums"]["system_type"]
+        }
+        Update: {
+          created_at?: string
+          description?: string | null
+          id?: string
+          name?: string
+          system?: Database["public"]["Enums"]["system_type"]
+        }
+        Relationships: []
+      }
+      system_specializations: {
+        Row: {
+          class_id: string
+          created_at: string
+          description: string | null
+          id: string
+          name: string
+        }
+        Insert: {
+          class_id: string
+          created_at?: string
+          description?: string | null
+          id?: string
+          name: string
+        }
+        Update: {
+          class_id?: string
+          created_at?: string
+          description?: string | null
+          id?: string
+          name?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "system_specializations_class_id_fkey"
+            columns: ["class_id"]
+            isOneToOne: false
+            referencedRelation: "system_classes"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       timeline_events: {
         Row: {

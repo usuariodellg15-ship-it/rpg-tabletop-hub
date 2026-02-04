@@ -39,6 +39,7 @@ import { GMCombatTab } from '@/components/gm/GMCombatTab';
 import { GMNotesTab, GMNote } from '@/components/gm/GMNotesTab';
 import { GMMissionsTab } from '@/components/gm/GMMissionsTab';
 import { GMHomebrewTab } from '@/components/gm/GMHomebrewTab';
+import { GMAllowedItemsTab } from '@/components/gm/GMAllowedItemsTab';
 import { RollsSidebar } from '@/components/campaign/RollsSidebar';
 
 // Types
@@ -405,6 +406,9 @@ export default function GMShieldPage() {
               <TabsTrigger value="homebrew">
                 <Package className="h-4 w-4 mr-1" />Homebrew
               </TabsTrigger>
+              <TabsTrigger value="allowed-items">
+                <Package className="h-4 w-4 mr-1" />Itens
+              </TabsTrigger>
             </TabsList>
 
             {/* Dashboard */}
@@ -564,6 +568,14 @@ export default function GMShieldPage() {
             {/* Homebrew */}
             <TabsContent value="homebrew">
               <GMHomebrewTab 
+                campaignId={id!}
+                system={campaign.system}
+              />
+            </TabsContent>
+
+            {/* Allowed Items */}
+            <TabsContent value="allowed-items">
+              <GMAllowedItemsTab 
                 campaignId={id!}
                 system={campaign.system}
               />
