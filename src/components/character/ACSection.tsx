@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -27,9 +27,20 @@ export default function ACSection({
 
   const totalAC = base + attr + bonus;
 
-  useEffect(() => {
-    onACChange(base, attr, bonus);
-  }, [base, attr, bonus, onACChange]);
+  // Keep local state in sync if parent updates values (e.g., loading a new character)
+  useEffect(() => setBase(baseAC), [baseAC]);
+  useEffect(() => setAttr(attrAC), [attrAC]);
+  useEffect(() => setBonus(bonusAC), [bonusAC]);
+
+  const update = useCallback(
+    (nextBase: number, nextAttr: number, nextBonus: number) => {
+      setBase(nextBase);
+      setAttr(nextAttr);
+      setBonus(nextBonus);
+      onACChange(nextBase, nextAttr, nextBonus);
+    },
+    [onACChange]
+  );
 
   return (
     <Card>
@@ -57,7 +68,7 @@ export default function ACSection({
               type="number"
               className="h-10 text-center mt-1"
               value={base}
-              onChange={e => setBase(parseInt(e.target.value) || 0)}
+                onChange={e => update(parseInt(e.target.value) || 0, attr, bonus)}
               disabled={!isEditable}
             />
           </div>
@@ -67,7 +78,7 @@ export default function ACSection({
               type="number"
               className="h-10 text-center mt-1"
               value={attr}
-              onChange={e => setAttr(parseInt(e.target.value) || 0)}
+                onChange={e => update(base, parseInt(e.target.value) || 0, bonus)}
               disabled={!isEditable}
             />
           </div>
@@ -77,7 +88,7 @@ export default function ACSection({
               type="number"
               className="h-10 text-center mt-1"
               value={bonus}
-              onChange={e => setBonus(parseInt(e.target.value) || 0)}
+                onChange={e => update(base, attr, parseInt(e.target.value) || 0)}
               disabled={!isEditable}
             />
           </div>
