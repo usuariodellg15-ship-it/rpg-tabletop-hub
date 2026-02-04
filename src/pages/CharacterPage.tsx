@@ -17,6 +17,7 @@ import HealthSection from '@/components/character/HealthSection';
 import ACSection from '@/components/character/ACSection';
 import AttributesSection from '@/components/character/AttributesSection';
 import SkillsSection, { Skill, getSkillsForSystem } from '@/components/character/SkillsSection';
+import { ClassSpecializationSelector } from '@/components/character/ClassSpecializationSelector';
 
 type Character = Database['public']['Tables']['characters']['Row'];
 type Campaign = Database['public']['Tables']['campaigns']['Row'];
@@ -374,6 +375,22 @@ export default function CharacterPage() {
                 />
               )}
             </div>
+
+            {/* Class & Specialization - Only for Olho da Morte */}
+            {system === 'olho_da_morte' && campaign && (
+              <ClassSpecializationSelector
+                system={system}
+                selectedClassId={null}
+                selectedSpecializationId={null}
+                onClassChange={(classId, className) => {
+                  if (className) {
+                    updateCharacter.mutate({ class: className });
+                  }
+                }}
+                onSpecializationChange={() => {}}
+                isEditable={isEditable}
+              />
+            )}
 
             {/* Attributes Section */}
             <AttributesSection
