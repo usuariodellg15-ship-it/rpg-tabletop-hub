@@ -175,16 +175,18 @@ export default function CharacterPage() {
   }, [character, is5e, isHorror, isAutoral]);
 
   const [attributes, setAttributes] = useState(initialAttributes);
+  const [attributesInitialized, setAttributesInitialized] = useState(false);
 
-  // Update attributes when character data loads
+  // Update attributes ONCE when character data first loads (avoid infinite loop)
   useEffect(() => {
-    if (initialAttributes.length > 0) {
+    if (!attributesInitialized && initialAttributes.length > 0) {
       setAttributes(initialAttributes);
+      setAttributesInitialized(true);
     }
-  }, [initialAttributes]);
+  }, [initialAttributes, attributesInitialized]);
 
-  // Skills state - also needs to update when attributes change
-  const initialSkills = useMemo((): Skill[] => {
+  // Skills computed from current attributes state (not a separate effect)
+  const skills = useMemo((): Skill[] => {
     if (attributes.length === 0) return [];
     const baseSkills = getSkillsForSystem(system);
     const attrMap = new Map(attributes.map(a => [a.label, a.value]));
@@ -197,28 +199,25 @@ export default function CharacterPage() {
     }));
   }, [system, attributes]);
 
-  const [skills, setSkills] = useState<Skill[]>(initialSkills);
+  // Separate state for skill customizations (proficiency, extra bonus)
+  const [skillCustomizations, setSkillCustomizations] = useState<Record<string, { isProficient: boolean; extraBonus: number }>>({});
 
-  // Update skills when attributes change
-  useEffect(() => {
-    if (initialSkills.length > 0) {
-      setSkills(initialSkills);
-    }
-  }, [initialSkills]);
+  // Merge base skills with customizations
+  const mergedSkills = useMemo((): Skill[] => {
+    return skills.map(s => ({
+      ...s,
+      isProficient: skillCustomizations[s.id]?.isProficient ?? false,
+      extraBonus: skillCustomizations[s.id]?.extraBonus ?? 0,
+    }));
+  }, [skills, skillCustomizations]);
 
   // Roll log state
   const [rollLog, setRollLog] = useState<{ skill: string; formula: string; result: number }[]>([]);
 
   const handleAttributeChange = useCallback((key: string, value: number) => {
     setAttributes(prev => prev.map(a => a.key === key ? { ...a, value } : a));
-    setSkills(prev => prev.map(skill => {
-      const attr = attributes.find(a => a.label === skill.attribute);
-      if (attr && attr.key === key) {
-        return { ...skill, attributeValue: value };
-      }
-      return skill;
-    }));
-  }, [attributes]);
+    // Skills will auto-update via useMemo since they depend on attributes
+  }, []);
 
   const handleACChange = useCallback((base: number, attr: number, bonus: number) => {
     setAcBase(base);
@@ -228,8 +227,14 @@ export default function CharacterPage() {
     updateCharacter.mutate({ ac: newAC });
   }, [updateCharacter]);
 
-  const handleSkillChange = useCallback((skillId: string, field: keyof Skill, value: any) => {
-    setSkills(prev => prev.map(s => s.id === skillId ? { ...s, [field]: value } : s));
+  const handleSkillChange = useCallback((skillId: string, field: keyof Skill, value: unknown) => {
+    setSkillCustomizations(prev => ({
+      ...prev,
+      [skillId]: {
+        isProficient: field === 'isProficient' ? Boolean(value) : (prev[skillId]?.isProficient ?? false),
+        extraBonus: field === 'extraBonus' ? Number(value) : (prev[skillId]?.extraBonus ?? 0),
+      }
+    }));
   }, []);
 
   const handleSkillRoll = useCallback((skillName: string, formula: string, result: number) => {
@@ -440,7 +445,7 @@ export default function CharacterPage() {
           <TabsContent value="skills">
             <SkillsSection
               system={system}
-              skills={skills}
+              skills={mergedSkills}
               level={character.level || 1}
               onSkillChange={handleSkillChange}
               onRoll={handleSkillRoll}
