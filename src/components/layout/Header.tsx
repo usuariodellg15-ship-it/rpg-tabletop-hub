@@ -28,6 +28,17 @@ export function Header() {
   const { user, profile, signOut } = useAuth();
   const { theme } = useTheme();
 
+  const safeName = (() => {
+    const n: unknown = profile?.name;
+    if (typeof n === 'string') return n;
+    if (n === null || n === undefined) return 'Usuário';
+    try {
+      return JSON.stringify(n);
+    } catch {
+      return 'Usuário';
+    }
+  })();
+
   const isActive = (path: string) => location.pathname.startsWith(path);
 
   const getThemeIcon = () => {
@@ -111,17 +122,17 @@ export function Header() {
               <Button variant="ghost" className="gap-2 pl-2">
                 <Avatar className="h-8 w-8">
                   <AvatarImage src={profile.avatar_url || undefined} alt={profile.name} />
-                  <AvatarFallback>{profile.name[0]}</AvatarFallback>
+                  <AvatarFallback>{safeName?.[0] || '?'}</AvatarFallback>
                 </Avatar>
                 <span className="hidden md:inline-block max-w-32 truncate">
-                  {profile.name}
+                  {safeName}
                 </span>
                 <ChevronDown className="h-4 w-4 text-muted-foreground" />
               </Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end" className="w-56">
               <div className="px-2 py-1.5">
-                <p className="text-sm font-medium">{profile.name}</p>
+                <p className="text-sm font-medium">{safeName}</p>
                 <p className="text-xs text-muted-foreground">{profile.email}</p>
                 <Badge variant="outline" className="mt-1 text-xs capitalize">
                   {profile.subscription_plan === 'premium' ? 'Premium' : 'Free'}

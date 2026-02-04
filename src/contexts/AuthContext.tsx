@@ -13,6 +13,28 @@ export interface Profile {
   updated_at: string;
 }
 
+const toSafeString = (value: unknown, fallback = ''): string => {
+  if (typeof value === 'string') return value;
+  if (typeof value === 'number' || typeof value === 'boolean') return String(value);
+  if (value === null || value === undefined) return fallback;
+  try {
+    return JSON.stringify(value);
+  } catch {
+    return fallback;
+  }
+};
+
+const normalizeProfile = (data: any): Profile => {
+  // Defensive normalization to avoid React #185 when backend data shape is unexpected.
+  return {
+    ...data,
+    name: toSafeString(data?.name, 'Usuário'),
+    email: toSafeString(data?.email, ''),
+    avatar_url: typeof data?.avatar_url === 'string' || data?.avatar_url === null ? data.avatar_url : null,
+    subscription_plan: data?.subscription_plan === 'premium' ? 'premium' : 'free',
+  } as Profile;
+};
+
 interface AuthContextType {
   user: SupabaseUser | null;
   profile: Profile | null;
@@ -45,7 +67,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         return null;
       }
 
-      return data as Profile;
+      return normalizeProfile(data);
     } catch (error) {
       console.error('Error fetching profile:', error);
       return null;
