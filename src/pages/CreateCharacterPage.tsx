@@ -11,6 +11,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { toast } from 'sonner';
+import { CharacterClassSelector } from '@/components/character/CharacterClassSelector';
 
 type SystemType = Database['public']['Enums']['system_type'];
 
@@ -22,7 +23,13 @@ export default function CreateCharacterPage() {
   
   const [step, setStep] = useState(1);
   const [name, setName] = useState('');
-  const [charClass, setCharClass] = useState('');
+  
+  // Class & Specialization selection
+  const [selectedClassId, setSelectedClassId] = useState<string | null>(null);
+  const [selectedClassName, setSelectedClassName] = useState<string | null>(null);
+  const [selectedSpecId, setSelectedSpecId] = useState<string | null>(null);
+  const [selectedSpecName, setSelectedSpecName] = useState<string | null>(null);
+  
   const [attrs, setAttrs] = useState<Record<string, number>>({});
   const [hp, setHp] = useState(10);
   const [acOrSanity, setAcOrSanity] = useState(10);
@@ -77,7 +84,9 @@ export default function CreateCharacterPage() {
           campaign_id: campaignId,
           user_id: user.id,
           name: name.trim(),
-          class: charClass.trim() || null,
+          class: selectedClassName || null,
+          class_id: selectedClassId || null,
+          specialization_id: selectedSpecId || null,
           level: 1,
           attributes: attrs,
           hp_current: hp,
@@ -119,19 +128,22 @@ export default function CreateCharacterPage() {
 
   const attrNames = getAttrNames();
 
-  const getClassPlaceholder = () => {
-    if (is5e) return "Ex: Paladina, Mago, Ladino";
-    if (isAutoral) return "Ex: Pistoleiro, Curandeira, Fora-da-Lei";
-    if (isHorror) return "Ex: Professor, Jornalista, Detetive";
-    return "Ex: Guerreiro";
-  };
-
   const handleCreate = () => {
     if (!name.trim()) {
       toast.error('O nome do personagem é obrigatório.');
       return;
     }
     createCharacter.mutate();
+  };
+
+  const handleClassChange = (classId: string | null, className: string | null) => {
+    setSelectedClassId(classId);
+    setSelectedClassName(className);
+  };
+
+  const handleSpecChange = (specId: string | null, specName: string | null) => {
+    setSelectedSpecId(specId);
+    setSelectedSpecName(specName);
   };
 
   // Loading state
@@ -224,14 +236,33 @@ export default function CreateCharacterPage() {
                   placeholder={isHorror ? "Ex: Dr. Henry Armitage" : "Ex: Lyanna Raio de Prata"} 
                 />
               </div>
-              <div>
-                <Label>Classe / Ocupação</Label>
-                <Input 
-                  value={charClass} 
-                  onChange={e => setCharClass(e.target.value)} 
-                  placeholder={getClassPlaceholder()} 
-                />
-              </div>
+              
+              {/* Class & Specialization Selector - only for systems with classes */}
+              {(isAutoral || is5e) && (
+                <div className="space-y-2">
+                  <Label>Classe & Especialização</Label>
+                  <CharacterClassSelector
+                    system={campaign.system}
+                    selectedClassId={selectedClassId}
+                    selectedSpecializationId={selectedSpecId}
+                    onClassChange={handleClassChange}
+                    onSpecializationChange={handleSpecChange}
+                  />
+                </div>
+              )}
+
+              {/* For Horror system, keep text input for occupation */}
+              {isHorror && (
+                <div>
+                  <Label>Ocupação</Label>
+                  <Input 
+                    value={selectedClassName || ''} 
+                    onChange={e => setSelectedClassName(e.target.value)} 
+                    placeholder="Ex: Professor, Jornalista, Detetive" 
+                  />
+                </div>
+              )}
+
               <Button onClick={() => setStep(2)} className="w-full" disabled={!name.trim()}>
                 Próximo<ArrowRight className="h-4 w-4 ml-2" />
               </Button>
@@ -300,7 +331,10 @@ export default function CreateCharacterPage() {
             <CardContent className="space-y-4">
               <div className="p-4 bg-muted rounded-lg">
                 <p className="text-xl font-heading font-bold">{name || 'Sem nome'}</p>
-                <p className="text-muted-foreground">{charClass || 'Sem classe'}</p>
+                <p className="text-muted-foreground">
+                  {selectedClassName || 'Sem classe'}
+                  {selectedSpecName && ` • ${selectedSpecName}`}
+                </p>
                 <div className={`grid gap-2 mt-4 text-sm ${isHorror ? 'grid-cols-4' : 'grid-cols-3'}`}>
                   {Object.entries(attrs).map(([k, v]) => (
                     <div key={k}>
