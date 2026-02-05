@@ -5,11 +5,10 @@ import { useAuth } from '@/contexts/AuthContext';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import type { Database } from '@/integrations/supabase/types';
-import { ArrowLeft, Edit, Download, History, Dices, Loader2, User } from 'lucide-react';
+import { ArrowLeft, Download, History, Loader2, User, Save } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Badge } from '@/components/ui/badge';
-import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
+import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { Progress } from '@/components/ui/progress';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { toast } from 'sonner';
@@ -18,6 +17,10 @@ import ACSection from '@/components/character/ACSection';
 import AttributesSection from '@/components/character/AttributesSection';
 import SkillsSection, { Skill, getSkillsForSystem } from '@/components/character/SkillsSection';
 import { ClassSpecializationSelector } from '@/components/character/ClassSpecializationSelector';
+import { LevelControl } from '@/components/character/LevelControl';
+import { CustomRollsSection } from '@/components/character/CustomRollsSection';
+import { AbilitiesSection } from '@/components/character/AbilitiesSection';
+import { CharacterInventory } from '@/components/character/CharacterInventory';
 
 type Character = Database['public']['Tables']['characters']['Row'];
 type Campaign = Database['public']['Tables']['campaigns']['Row'];
@@ -131,11 +134,31 @@ export default function CharacterPage() {
   const [hp, setHp] = useState(character?.hp_current || 0);
   const [maxHp, setMaxHp] = useState(character?.hp_max || 1);
   const [tempHp, setTempHp] = useState(0);
+  const [level, setLevel] = useState(character?.level || 1);
+  
+  // Class & Specialization state
+  const [selectedClassId, setSelectedClassId] = useState<string | null>(
+    (character as any)?.class_id || null
+  );
+  const [selectedSpecId, setSelectedSpecId] = useState<string | null>(
+    (character as any)?.specialization_id || null
+  );
   
   // AC breakdown state
   const [acBase, setAcBase] = useState(10);
   const [acAttr, setAcAttr] = useState(character?.ac ? Math.max(0, (character.ac - 10)) : 0);
   const [acBonus, setAcBonus] = useState(0);
+
+  // Update local state when character loads
+  useEffect(() => {
+    if (character) {
+      setHp(character.hp_current || 0);
+      setMaxHp(character.hp_max || 1);
+      setLevel(character.level || 1);
+      setSelectedClassId((character as any)?.class_id || null);
+      setSelectedSpecId((character as any)?.specialization_id || null);
+    }
+  }, [character]);
 
   // Parse attributes from JSON - memoized to prevent recalculation
   const initialAttributes = useMemo(() => {
@@ -164,21 +187,21 @@ export default function CharacterPage() {
         { key: 'Tamanho', label: 'TAM', value: Number(attrs['Tamanho']) || 50 },
       ];
     }
-    // Olho da Morte - usar mesmos atributos do D&D conforme especificado
+    // Olho da Morte
     return [
-      { key: 'Força', label: 'FOR', value: Number(attrs['Força']) || Number(attrs['Vigor']) || 10 },
-      { key: 'Destreza', label: 'DES', value: Number(attrs['Destreza']) || Number(attrs['Agilidade']) || 10 },
-      { key: 'Constituição', label: 'CON', value: Number(attrs['Constituição']) || Number(attrs['Vigor']) || 10 },
-      { key: 'Inteligência', label: 'INT', value: Number(attrs['Inteligência']) || Number(attrs['Intelecto']) || 10 },
-      { key: 'Sabedoria', label: 'SAB', value: Number(attrs['Sabedoria']) || Number(attrs['Vontade']) || 10 },
-      { key: 'Carisma', label: 'CAR', value: Number(attrs['Carisma']) || Number(attrs['Presença']) || 10 },
+      { key: 'Força', label: 'FOR', value: Number(attrs['Força']) || 10 },
+      { key: 'Destreza', label: 'DES', value: Number(attrs['Destreza']) || 10 },
+      { key: 'Constituição', label: 'CON', value: Number(attrs['Constituição']) || 10 },
+      { key: 'Inteligência', label: 'INT', value: Number(attrs['Inteligência']) || 10 },
+      { key: 'Sabedoria', label: 'SAB', value: Number(attrs['Sabedoria']) || 10 },
+      { key: 'Carisma', label: 'CAR', value: Number(attrs['Carisma']) || 10 },
     ];
-  }, [character, is5e, isHorror, isAutoral]);
+  }, [character, is5e, isHorror]);
 
   const [attributes, setAttributes] = useState(initialAttributes);
   const [attributesInitialized, setAttributesInitialized] = useState(false);
 
-  // Update attributes ONCE when character data first loads (avoid infinite loop)
+  // Update attributes ONCE when character data first loads
   useEffect(() => {
     if (!attributesInitialized && initialAttributes.length > 0) {
       setAttributes(initialAttributes);
@@ -186,7 +209,7 @@ export default function CharacterPage() {
     }
   }, [initialAttributes, attributesInitialized]);
 
-  // Skills computed from current attributes state (not a separate effect)
+  // Skills computed from current attributes state
   const skills = useMemo((): Skill[] => {
     if (attributes.length === 0) return [];
     const baseSkills = getSkillsForSystem(system);
@@ -200,7 +223,7 @@ export default function CharacterPage() {
     }));
   }, [system, attributes]);
 
-  // Separate state for skill customizations (proficiency, extra bonus)
+  // Skill customizations
   const [skillCustomizations, setSkillCustomizations] = useState<Record<string, { isProficient: boolean; extraBonus: number }>>({});
 
   // Merge base skills with customizations
@@ -212,12 +235,8 @@ export default function CharacterPage() {
     }));
   }, [skills, skillCustomizations]);
 
-  // Roll log state
-  const [rollLog, setRollLog] = useState<{ skill: string; formula: string; result: number }[]>([]);
-
   const handleAttributeChange = useCallback((key: string, value: number) => {
     setAttributes(prev => prev.map(a => a.key === key ? { ...a, value } : a));
-    // Skills will auto-update via useMemo since they depend on attributes
   }, []);
 
   const handleACChange = useCallback((base: number, attr: number, bonus: number) => {
@@ -238,9 +257,24 @@ export default function CharacterPage() {
     }));
   }, []);
 
-  const handleSkillRoll = useCallback((skillName: string, formula: string, result: number) => {
-    setRollLog(prev => [{ skill: skillName, formula, result }, ...prev.slice(0, 9)]);
-  }, []);
+  const handleSkillRoll = useCallback(async (skillName: string, formula: string, result: number) => {
+    if (!character || !user) return;
+    
+    // Save to dice_rolls
+    await supabase
+      .from('dice_rolls')
+      .insert({
+        campaign_id: character.campaign_id,
+        user_id: user.id,
+        character_id: character.id,
+        formula,
+        result,
+        details: skillName,
+        roll_type: 'test',
+      });
+    
+    queryClient.invalidateQueries({ queryKey: ['campaign-dice-rolls', character.campaign_id] });
+  }, [character, user, queryClient]);
 
   // Sync HP changes to database
   const handleHpChange = useCallback((newHp: number) => {
@@ -251,6 +285,27 @@ export default function CharacterPage() {
   const handleMaxHpChange = useCallback((newMaxHp: number) => {
     setMaxHp(newMaxHp);
     updateCharacter.mutate({ hp_max: newMaxHp });
+  }, [updateCharacter]);
+
+  const handleLevelChange = useCallback((newLevel: number) => {
+    setLevel(newLevel);
+    updateCharacter.mutate({ level: newLevel });
+    toast.success(`Nível atualizado para ${newLevel}!`);
+  }, [updateCharacter]);
+
+  const handleClassChange = useCallback((classId: string | null, className: string | null) => {
+    setSelectedClassId(classId);
+    updateCharacter.mutate({ 
+      class_id: classId,
+      class: className,
+    } as any);
+  }, [updateCharacter]);
+
+  const handleSpecChange = useCallback((specId: string | null, _specName: string | null) => {
+    setSelectedSpecId(specId);
+    updateCharacter.mutate({ 
+      specialization_id: specId,
+    } as any);
   }, [updateCharacter]);
 
   // Loading state
@@ -266,8 +321,6 @@ export default function CharacterPage() {
 
   // Error handling
   if (error || !character) {
-    const errorMessage = error instanceof Error ? error.message : 'Unknown error';
-    
     return (
       <MainLayout>
         <div className="container py-8 max-w-5xl">
@@ -315,14 +368,22 @@ export default function CharacterPage() {
           <div className="flex-1">
             <h1 className="text-3xl font-heading font-bold">{characterName}</h1>
             <p className="text-lg text-muted-foreground">
-              {characterClass || 'Sem classe'} • Nível {character.level || 1}
+              {characterClass || 'Sem classe'} • Nível {level}
             </p>
             <p className="text-sm text-muted-foreground mt-1">Jogador: {ownerName}</p>
           </div>
-          <div className="flex gap-2">
-            {isEditable && <Button variant="outline"><Edit className="h-4 w-4 mr-2" />Editar</Button>}
-            <Button variant="ghost"><Download className="h-4 w-4" /></Button>
-            <Button variant="ghost"><History className="h-4 w-4" /></Button>
+          <div className="flex flex-col gap-2 items-end">
+            {isEditable && (
+              <LevelControl
+                level={level}
+                onLevelChange={handleLevelChange}
+                disabled={updateCharacter.isPending}
+              />
+            )}
+            <div className="flex gap-2">
+              <Button variant="ghost" size="icon"><Download className="h-4 w-4" /></Button>
+              <Button variant="ghost" size="icon"><History className="h-4 w-4" /></Button>
+            </div>
           </div>
         </div>
 
@@ -332,6 +393,7 @@ export default function CharacterPage() {
             <TabsTrigger value="skills">Perícias</TabsTrigger>
             <TabsTrigger value="abilities">Habilidades</TabsTrigger>
             <TabsTrigger value="inventory">Inventário</TabsTrigger>
+            <TabsTrigger value="rolls">Dados</TabsTrigger>
           </TabsList>
 
           {/* Status Tab */}
@@ -339,8 +401,8 @@ export default function CharacterPage() {
             <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
               {/* Health Section */}
               <HealthSection
-                hp={character.hp_current || hp}
-                maxHp={character.hp_max || maxHp}
+                hp={hp}
+                maxHp={maxHp}
                 tempHp={tempHp}
                 onHpChange={handleHpChange}
                 onMaxHpChange={handleMaxHpChange}
@@ -376,18 +438,14 @@ export default function CharacterPage() {
               )}
             </div>
 
-            {/* Class & Specialization - Only for Olho da Morte */}
-            {system === 'olho_da_morte' && campaign && (
+            {/* Class & Specialization */}
+            {(isAutoral || is5e) && campaign && (
               <ClassSpecializationSelector
                 system={system}
-                selectedClassId={null}
-                selectedSpecializationId={null}
-                onClassChange={(classId, className) => {
-                  if (className) {
-                    updateCharacter.mutate({ class: className });
-                  }
-                }}
-                onSpecializationChange={() => {}}
+                selectedClassId={selectedClassId}
+                selectedSpecializationId={selectedSpecId}
+                onClassChange={handleClassChange}
+                onSpecializationChange={handleSpecChange}
                 isEditable={isEditable}
               />
             )}
@@ -399,63 +457,6 @@ export default function CharacterPage() {
               onAttributeChange={handleAttributeChange}
               isEditable={isEditable}
             />
-
-            {/* Quick Rolls - Only for owner */}
-            {isOwner && (
-              <Card>
-                <CardHeader>
-                  <CardTitle className="flex items-center gap-2">
-                    <Dices className="h-5 w-5" />Rolagens Rápidas
-                  </CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <div className="flex flex-wrap gap-2 mb-4">
-                    {isHorror ? (
-                      <>
-                        <Button variant="outline" size="sm" onClick={() => {
-                          const result = Math.floor(Math.random() * 100) + 1;
-                          toast.success(`🎲 1d100: ${result}`);
-                          handleSkillRoll('Teste', '1d100', result);
-                        }}>1d100</Button>
-                        <Button variant="outline" size="sm" onClick={() => {
-                          const result = Math.floor(Math.random() * 6) + 1;
-                          toast.success(`🎲 1d6: ${result}`);
-                          handleSkillRoll('Dano', '1d6', result);
-                        }}>1d6</Button>
-                      </>
-                    ) : (
-                      <>
-                        <Button variant="outline" size="sm" onClick={() => {
-                          const result = Math.floor(Math.random() * 20) + 1;
-                          toast.success(`🎲 1d20: ${result}`);
-                          handleSkillRoll('Teste', '1d20', result);
-                        }}>1d20</Button>
-                        <Button variant="outline" size="sm" onClick={() => {
-                          const result = Math.floor(Math.random() * 6) + 1 + Math.floor(Math.random() * 6) + 1;
-                          toast.success(`🎲 2d6: ${result}`);
-                          handleSkillRoll('Dano', '2d6', result);
-                        }}>2d6</Button>
-                      </>
-                    )}
-                  </div>
-
-                  {/* Recent Rolls */}
-                  {rollLog.length > 0 && (
-                    <div className="border-t pt-4">
-                      <p className="text-sm font-medium mb-2">Últimas Rolagens:</p>
-                      <div className="space-y-1">
-                        {rollLog.slice(0, 5).map((roll, i) => (
-                          <div key={i} className="flex justify-between text-sm py-1 px-2 bg-muted rounded">
-                            <span>{roll.skill}</span>
-                            <span className="font-mono">{roll.formula} = <strong>{roll.result}</strong></span>
-                          </div>
-                        ))}
-                      </div>
-                    </div>
-                  )}
-                </CardContent>
-              </Card>
-            )}
           </TabsContent>
 
           {/* Skills Tab */}
@@ -463,7 +464,7 @@ export default function CharacterPage() {
             <SkillsSection
               system={system}
               skills={mergedSkills}
-              level={character.level || 1}
+              level={level}
               onSkillChange={handleSkillChange}
               onRoll={handleSkillRoll}
               isEditable={isEditable}
@@ -472,30 +473,24 @@ export default function CharacterPage() {
 
           {/* Abilities Tab */}
           <TabsContent value="abilities">
-            <Card>
-              <CardHeader>
-                <CardTitle>Habilidades</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <p className="text-muted-foreground text-center py-8">
-                  Nenhuma habilidade configurada ainda.
-                </p>
-              </CardContent>
-            </Card>
+            <AbilitiesSection
+              characterId={character.id}
+              classId={selectedClassId}
+              specializationId={selectedSpecId}
+              level={level}
+              isEditable={isEditable}
+            />
           </TabsContent>
 
           {/* Inventory Tab */}
           <TabsContent value="inventory">
-            <Card>
-              <CardHeader>
-                <CardTitle>Inventário</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <p className="text-muted-foreground text-center py-8">
-                  Inventário vazio.
-                </p>
-              </CardContent>
-            </Card>
+            <CharacterInventory
+              characterId={character.id}
+              campaignId={character.campaign_id}
+              system={system}
+              maxWeight={Number(character.weight_max) || 60}
+              isEditable={isEditable}
+            />
 
             {/* Notes */}
             {characterNotes && (
@@ -507,6 +502,18 @@ export default function CharacterPage() {
                   <p className="text-muted-foreground whitespace-pre-wrap">{characterNotes}</p>
                 </CardContent>
               </Card>
+            )}
+          </TabsContent>
+
+          {/* Custom Rolls Tab */}
+          <TabsContent value="rolls">
+            {user && (
+              <CustomRollsSection
+                characterId={character.id}
+                campaignId={character.campaign_id}
+                userId={user.id}
+                isEditable={isOwner}
+              />
             )}
           </TabsContent>
         </Tabs>
