@@ -19,7 +19,8 @@ type Campaign = Database['public']['Tables']['campaigns']['Row'];
 type Membership = Database['public']['Tables']['campaign_memberships']['Row'];
 type Character = Database['public']['Tables']['characters']['Row'];
 type DiceRoll = Database['public']['Tables']['dice_rolls']['Row'];
-type Profile = Database['public']['Tables']['profiles']['Row'];
+import type { SafeProfile } from '@/types/safe-profile';
+type Profile = SafeProfile;
 
 export default function CampaignPage() {
   const { id } = useParams();
@@ -56,17 +57,17 @@ export default function CampaignPage() {
     enabled: !!id,
   });
 
-  // Fetch profiles for members
+  // Fetch profiles for members (uses safe_profiles view - no email)
   const { data: profiles = {} } = useQuery({
     queryKey: ['member-profiles'],
     queryFn: async () => {
       const { data, error } = await supabase
-        .from('profiles')
-        .select('*');
+        .from('safe_profiles' as any)
+        .select('*') as { data: SafeProfile[] | null; error: any };
       if (error) throw error;
       
       const map: Record<string, Profile> = {};
-      data?.forEach(p => {
+      data?.forEach((p: SafeProfile) => {
         map[p.user_id] = p;
       });
       return map;

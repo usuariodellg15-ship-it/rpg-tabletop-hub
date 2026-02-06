@@ -95,17 +95,17 @@ export default function CampaignsPage() {
     enabled: !!user,
   });
 
-  // Fetch GM profiles
+  // Fetch GM profiles (uses safe_profiles view - no email)
   const { data: gmProfiles = {} } = useQuery({
     queryKey: ['gm-profiles'],
     queryFn: async () => {
       const { data, error } = await supabase
-        .from('profiles')
-        .select('user_id, name');
+        .from('safe_profiles' as any)
+        .select('user_id, name') as { data: { user_id: string; name: string }[] | null; error: any };
       if (error) throw error;
       
       const profiles: Record<string, string> = {};
-      data?.forEach(p => {
+      data?.forEach((p) => {
         profiles[p.user_id] = p.name;
       });
       return profiles;
