@@ -48,7 +48,8 @@ type Character = Database['public']['Tables']['characters']['Row'];
 type DiceRoll = Database['public']['Tables']['dice_rolls']['Row'];
 type TimelineEvent = Database['public']['Tables']['timeline_events']['Row'];
 type Mission = Database['public']['Tables']['missions']['Row'];
-type Profile = Database['public']['Tables']['profiles']['Row'];
+import type { SafeProfile } from '@/types/safe-profile';
+type Profile = SafeProfile;
 type CombatStatEventDB = Database['public']['Tables']['combat_stat_events']['Row'];
 
 // Event types for timeline
@@ -199,14 +200,14 @@ export default function GMShieldPage() {
     enabled: !!id && isGM,
   });
 
-  // Fetch profiles for character owners
+  // Fetch profiles for character owners (uses safe_profiles view - no email)
   const { data: profiles = {} } = useQuery({
     queryKey: ['profiles-map'],
     queryFn: async () => {
-      const { data, error } = await supabase.from('profiles').select('*');
+      const { data, error } = await supabase.from('safe_profiles' as any).select('*') as { data: SafeProfile[] | null; error: any };
       if (error) throw error;
       const map: Record<string, Profile> = {};
-      data?.forEach(p => { map[p.user_id] = p; });
+      data?.forEach((p: SafeProfile) => { map[p.user_id] = p; });
       return map;
     },
     enabled: !!user,

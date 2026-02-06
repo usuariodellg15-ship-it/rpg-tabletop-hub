@@ -10,28 +10,29 @@ import { Card, CardContent, CardFooter, CardHeader } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 
-type Profile = Database['public']['Tables']['profiles']['Row'];
+import type { SafeProfile } from '@/types/safe-profile';
+type Profile = SafeProfile;
 type Homebrew = Database['public']['Tables']['homebrews']['Row'];
 
 export default function UserProfilePage() {
   const { id: userId } = useParams();
   const { user: currentUser } = useAuth();
 
-  // Fetch user profile
+  // Fetch user profile (uses safe_profiles view - no email)
   const { data: profile, isLoading: loadingProfile, error: profileError } = useQuery({
     queryKey: ['user-profile', userId],
     queryFn: async () => {
       if (!userId) throw new Error('User ID required');
 
-      const { data, error } = await supabase
-        .from('profiles')
+      const { data, error } = await (supabase
+        .from('safe_profiles' as any)
         .select('*')
         .eq('user_id', userId)
-        .maybeSingle();
+        .maybeSingle() as any) as { data: SafeProfile | null; error: any };
 
       if (error) throw error;
       if (!data) throw new Error('User not found');
-      return data as Profile;
+      return data;
     },
     enabled: !!userId,
   });

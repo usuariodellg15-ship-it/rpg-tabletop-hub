@@ -86,14 +86,14 @@ export default function CharacterPage() {
     queryFn: async () => {
       if (!character?.user_id) return null;
 
-      const { data, error } = await supabase
-        .from('profiles')
+      const { data, error } = await (supabase
+        .from('safe_profiles' as any)
         .select('*')
         .eq('user_id', character.user_id)
-        .maybeSingle();
+        .maybeSingle() as any) as { data: Profile | null; error: any };
 
       if (error) throw error;
-      return data as Profile | null;
+      return data;
     },
     enabled: !!character?.user_id,
   });

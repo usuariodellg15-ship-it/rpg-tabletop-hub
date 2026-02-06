@@ -40,17 +40,17 @@ export default function HomebrewsPage() {
     },
   });
 
-  // Fetch creator profiles
+  // Fetch creator profiles (uses safe_profiles view - no email)
   const { data: profiles = {} } = useQuery({
     queryKey: ['homebrew-creators'],
     queryFn: async () => {
       const { data, error } = await supabase
-        .from('profiles')
-        .select('user_id, name');
+        .from('safe_profiles' as any)
+        .select('user_id, name') as { data: { user_id: string; name: string }[] | null; error: any };
       if (error) throw error;
       
       const map: Record<string, string> = {};
-      data?.forEach(p => {
+      data?.forEach((p) => {
         map[p.user_id] = p.name;
       });
       return map;

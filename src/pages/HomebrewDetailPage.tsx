@@ -4,6 +4,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import type { Database } from '@/integrations/supabase/types';
+import type { SafeProfile } from '@/types/safe-profile';
 import { ArrowLeft, Heart, Plus, MessageSquare, Loader2, Wand2, Lock } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -45,20 +46,20 @@ export default function HomebrewDetailPage() {
     enabled: !!homebrewId,
   });
 
-  // Fetch author profile
+  // Fetch author profile (uses safe_profiles view - no email)
   const { data: author } = useQuery({
     queryKey: ['profile', homebrew?.creator_id],
     queryFn: async () => {
       if (!homebrew?.creator_id) return null;
 
-      const { data, error } = await supabase
-        .from('profiles')
+      const { data, error } = await (supabase
+        .from('safe_profiles' as any)
         .select('*')
         .eq('user_id', homebrew.creator_id)
-        .maybeSingle();
+        .maybeSingle() as any) as { data: SafeProfile | null; error: any };
 
       if (error) throw error;
-      return data as Profile | null;
+      return data;
     },
     enabled: !!homebrew?.creator_id,
   });
