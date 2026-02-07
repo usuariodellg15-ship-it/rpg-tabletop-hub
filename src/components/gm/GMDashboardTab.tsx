@@ -4,7 +4,8 @@ import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Progress } from '@/components/ui/progress';
-import { Zap, Heart, Skull, Users, Target, AlertTriangle, TrendingUp, TrendingDown } from 'lucide-react';
+import { ScrollArea } from '@/components/ui/scroll-area';
+import { Zap, Heart, Skull, Users, Target, AlertTriangle, TrendingUp, TrendingDown, Swords, Clock } from 'lucide-react';
 
 export interface CombatStatEvent {
   id: string;
@@ -104,6 +105,19 @@ export function GMDashboardTab({ characters, missions, statEvents }: GMDashboard
     return stats;
   }, [characters, statEvents]);
 
+  // Recent combat events (last 20)
+  const recentEvents = useMemo(() => {
+    const charMap = new Map(characters.map(c => [c.id, c]));
+    return statEvents
+      .filter(e => e.type === 'DAMAGE_TAKEN' || e.type === 'HEALING_DONE' || e.type === 'DAMAGE_DEALT')
+      .sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime())
+      .slice(0, 20)
+      .map(e => ({
+        ...e,
+        characterName: charMap.get(e.characterId)?.name || 'Desconhecido',
+      }));
+  }, [statEvents, characters]);
+
   // Rankings
   const topDamageDealer = useMemo(() => {
     let top: { char: DashboardCharacter; total: number } | null = null;
@@ -140,6 +154,36 @@ export function GMDashboardTab({ characters, missions, statEvents }: GMDashboard
 
   // Active missions
   const activeMissions = missions.filter(m => m.status === 'active');
+
+  const getEventLabel = (type: string) => {
+    switch (type) {
+      case 'DAMAGE_TAKEN': return '🛡️ Dano Recebido';
+      case 'HEALING_DONE': return '💚 Cura';
+      case 'DAMAGE_DEALT': return '⚔️ Dano Causado';
+      default: return '📌 Outro';
+    }
+  };
+
+  const getEventColor = (type: string) => {
+    switch (type) {
+      case 'DAMAGE_TAKEN': return 'text-red-500';
+      case 'HEALING_DONE': return 'text-green-500';
+      case 'DAMAGE_DEALT': return 'text-orange-500';
+      default: return 'text-muted-foreground';
+    }
+  };
+
+  const formatTime = (timestamp: string) => {
+    const date = new Date(timestamp);
+    const now = new Date();
+    const diffMs = now.getTime() - date.getTime();
+    const diffMins = Math.floor(diffMs / 60000);
+    if (diffMins < 1) return 'agora';
+    if (diffMins < 60) return `${diffMins}min`;
+    const diffHours = Math.floor(diffMins / 60);
+    if (diffHours < 24) return `${diffHours}h`;
+    return `${Math.floor(diffHours / 24)}d`;
+  };
 
   return (
     <div className="space-y-6">
@@ -302,7 +346,7 @@ export function GMDashboardTab({ characters, missions, statEvents }: GMDashboard
         </div>
       </div>
 
-      {/* Per-Character Stats */}
+      {/* Per-Character Stats with Net (Saldo) */}
       <Card>
         <CardHeader>
           <CardTitle className="text-sm flex items-center gap-2">
@@ -317,33 +361,81 @@ export function GMDashboardTab({ characters, missions, statEvents }: GMDashboard
               const avgDamage = stats.damageDealtCount > 0 ? (stats.damageDealt / stats.damageDealtCount).toFixed(1) : '0';
               const avgTaken = stats.damageTakenCount > 0 ? (stats.damageTaken / stats.damageTakenCount).toFixed(1) : '0';
               const avgHealing = stats.healingCount > 0 ? (stats.healingDone / stats.healingCount).toFixed(1) : '0';
+              const net = stats.healingDone - stats.damageTaken;
               
               return (
                 <div key={c.id} className="flex items-center justify-between p-3 rounded-lg border bg-card">
                   <div>
                     <p className="font-semibold">{c.name}</p>
                     <p className="text-xs text-muted-foreground">
-                      {c.class} Nv.{c.level}
+                      {c.class} Nv.{c.level} • PV: {c.hp}/{c.maxHp}
                     </p>
                   </div>
-                  <div className="flex gap-6 text-sm">
+                  <div className="flex gap-4 text-sm">
                     <div className="text-center">
                       <p className="font-bold text-orange-500">{stats.damageDealt}</p>
-                      <p className="text-xs text-muted-foreground">Dano (média: {avgDamage})</p>
-                    </div>
-                    <div className="text-center">
-                      <p className="font-bold text-green-500">{stats.healingDone}</p>
-                      <p className="text-xs text-muted-foreground">Cura (média: {avgHealing})</p>
+                      <p className="text-xs text-muted-foreground">Causado</p>
                     </div>
                     <div className="text-center">
                       <p className="font-bold text-red-500">{stats.damageTaken}</p>
-                      <p className="text-xs text-muted-foreground">Recebido (média: {avgTaken})</p>
+                      <p className="text-xs text-muted-foreground">Recebido</p>
+                    </div>
+                    <div className="text-center">
+                      <p className="font-bold text-green-500">{stats.healingDone}</p>
+                      <p className="text-xs text-muted-foreground">Cura</p>
+                    </div>
+                    <div className="text-center">
+                      <p className={`font-bold ${net >= 0 ? 'text-green-500' : 'text-red-500'}`}>
+                        {net >= 0 ? '+' : ''}{net}
+                      </p>
+                      <p className="text-xs text-muted-foreground">Saldo</p>
                     </div>
                   </div>
                 </div>
               );
             })}
           </div>
+        </CardContent>
+      </Card>
+
+      {/* Recent Combat Events */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-sm flex items-center gap-2">
+            <Clock className="h-4 w-4" />
+            Eventos Recentes de Combate
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          {recentEvents.length === 0 ? (
+            <p className="text-sm text-muted-foreground text-center py-4">
+              Nenhum evento de combate registrado ainda.
+            </p>
+          ) : (
+            <ScrollArea className="max-h-64">
+              <div className="space-y-2">
+                {recentEvents.map(event => (
+                  <div key={event.id} className="flex items-center justify-between p-2 rounded-md bg-muted/50 text-sm">
+                    <div className="flex items-center gap-2">
+                      <span>{getEventLabel(event.type).split(' ')[0]}</span>
+                      <span className="font-medium">{event.characterName}</span>
+                      <span className="text-muted-foreground">
+                        {getEventLabel(event.type).split(' ').slice(1).join(' ')}
+                      </span>
+                    </div>
+                    <div className="flex items-center gap-3">
+                      <span className={`font-bold ${getEventColor(event.type)}`}>
+                        {event.type === 'HEALING_DONE' ? '+' : '-'}{event.amount}
+                      </span>
+                      <span className="text-xs text-muted-foreground w-10 text-right">
+                        {formatTime(event.timestamp)}
+                      </span>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </ScrollArea>
+          )}
         </CardContent>
       </Card>
 

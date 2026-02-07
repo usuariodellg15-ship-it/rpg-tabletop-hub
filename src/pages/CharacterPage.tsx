@@ -21,6 +21,7 @@ import { LevelControl } from '@/components/character/LevelControl';
 import { CustomRollsSection } from '@/components/character/CustomRollsSection';
 import { AbilitiesSection } from '@/components/character/AbilitiesSection';
 import { CharacterInventory } from '@/components/character/CharacterInventory';
+import { CombatEventsSection } from '@/components/character/CombatEventsSection';
 
 type Character = Database['public']['Tables']['characters']['Row'];
 type Campaign = Database['public']['Tables']['campaigns']['Row'];
@@ -409,6 +410,19 @@ export default function CharacterPage() {
                 onTempHpChange={setTempHp}
                 isEditable={isEditable}
               />
+
+              {/* Combat Events Section */}
+              {user && character && (
+                <CombatEventsSection
+                  characterId={character.id}
+                  campaignId={character.campaign_id}
+                  userId={user.id}
+                  hp={hp}
+                  maxHp={maxHp}
+                  onHpChange={handleHpChange}
+                  isEditable={isEditable}
+                />
+              )}
 
               {/* Sanity for Horror */}
               {isHorror && (
