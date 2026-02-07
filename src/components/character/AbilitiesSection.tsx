@@ -46,11 +46,11 @@ export function AbilitiesSection({
   const { data: characterAbilities = [], isLoading: loadingAbilities } = useQuery({
     queryKey: ['character-abilities', characterId],
     queryFn: async () => {
-      const { data, error } = await (supabase
-        .from('character_abilities' as any)
+      const { data, error } = await supabase
+        .from('character_abilities')
         .select('*')
         .eq('character_id', characterId)
-        .order('level_acquired') as any);
+        .order('level_acquired');
       if (error) throw error;
       return (data || []) as CharacterAbility[];
     },
@@ -106,13 +106,13 @@ export function AbilitiesSection({
   const addMutation = useMutation({
     mutationFn: async (abilityId: string) => {
       const ability = availableAbilities.find(a => a.id === abilityId);
-      const { error } = await (supabase
-        .from('character_abilities' as any)
+      const { error } = await supabase
+        .from('character_abilities')
         .insert({
           character_id: characterId,
           ability_id: abilityId,
           level_acquired: ability?.level_required || level,
-        }) as any);
+        });
       if (error) throw error;
     },
     onSuccess: () => {
@@ -128,10 +128,10 @@ export function AbilitiesSection({
   // Remove ability mutation
   const removeMutation = useMutation({
     mutationFn: async (abilityRecordId: string) => {
-      const { error } = await (supabase
-        .from('character_abilities' as any)
+      const { error } = await supabase
+        .from('character_abilities')
         .delete()
-        .eq('id', abilityRecordId) as any);
+        .eq('id', abilityRecordId);
       if (error) throw error;
     },
     onSuccess: () => {

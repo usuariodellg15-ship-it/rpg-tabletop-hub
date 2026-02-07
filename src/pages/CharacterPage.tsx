@@ -100,12 +100,12 @@ export default function CharacterPage() {
 
   // Update character mutation
   const updateCharacter = useMutation({
-    mutationFn: async (updates: Partial<Character>) => {
+    mutationFn: async (updates: Record<string, unknown>) => {
       if (!characterId) throw new Error('Character ID required');
 
       const { data, error } = await supabase
         .from('characters')
-        .update(updates)
+        .update(updates as any)
         .eq('id', characterId)
         .select()
         .single();
@@ -138,10 +138,10 @@ export default function CharacterPage() {
   
   // Class & Specialization state
   const [selectedClassId, setSelectedClassId] = useState<string | null>(
-    (character as any)?.class_id || null
+    character?.class_id || null
   );
   const [selectedSpecId, setSelectedSpecId] = useState<string | null>(
-    (character as any)?.specialization_id || null
+    character?.specialization_id || null
   );
   
   // AC breakdown state
@@ -155,8 +155,8 @@ export default function CharacterPage() {
       setHp(character.hp_current || 0);
       setMaxHp(character.hp_max || 1);
       setLevel(character.level || 1);
-      setSelectedClassId((character as any)?.class_id || null);
-      setSelectedSpecId((character as any)?.specialization_id || null);
+      setSelectedClassId(character.class_id || null);
+      setSelectedSpecId(character.specialization_id || null);
     }
   }, [character]);
 
@@ -298,14 +298,14 @@ export default function CharacterPage() {
     updateCharacter.mutate({ 
       class_id: classId,
       class: className,
-    } as any);
+    });
   }, [updateCharacter]);
 
   const handleSpecChange = useCallback((specId: string | null, _specName: string | null) => {
     setSelectedSpecId(specId);
     updateCharacter.mutate({ 
       specialization_id: specId,
-    } as any);
+    });
   }, [updateCharacter]);
 
   // Loading state
@@ -419,7 +419,7 @@ export default function CharacterPage() {
                     </CardTitle>
                   </CardHeader>
                   <CardContent>
-                    <Progress value={(sanity / maxSanity) * 100} className="h-3 [&>div]:bg-purple-500" />
+                    <Progress value={(sanity / maxSanity) * 100} className="h-3 [&>div]:bg-primary" />
                     <p className="text-right text-sm mt-2">{sanity} / {maxSanity}</p>
                   </CardContent>
                 </Card>

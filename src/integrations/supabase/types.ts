@@ -159,6 +159,99 @@ export type Database = {
         }
         Relationships: []
       }
+      character_abilities: {
+        Row: {
+          ability_id: string | null
+          character_id: string
+          created_at: string
+          custom_description: string | null
+          custom_name: string | null
+          homebrew_id: string | null
+          id: string
+          level_acquired: number
+        }
+        Insert: {
+          ability_id?: string | null
+          character_id: string
+          created_at?: string
+          custom_description?: string | null
+          custom_name?: string | null
+          homebrew_id?: string | null
+          id?: string
+          level_acquired?: number
+        }
+        Update: {
+          ability_id?: string | null
+          character_id?: string
+          created_at?: string
+          custom_description?: string | null
+          custom_name?: string | null
+          homebrew_id?: string | null
+          id?: string
+          level_acquired?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "character_abilities_ability_id_fkey"
+            columns: ["ability_id"]
+            isOneToOne: false
+            referencedRelation: "system_abilities"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "character_abilities_character_id_fkey"
+            columns: ["character_id"]
+            isOneToOne: false
+            referencedRelation: "characters"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "character_abilities_homebrew_id_fkey"
+            columns: ["homebrew_id"]
+            isOneToOne: false
+            referencedRelation: "homebrews"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      character_custom_rolls: {
+        Row: {
+          character_id: string
+          created_at: string
+          description: string | null
+          formula: string
+          id: string
+          name: string
+          roll_type: string
+        }
+        Insert: {
+          character_id: string
+          created_at?: string
+          description?: string | null
+          formula: string
+          id?: string
+          name: string
+          roll_type?: string
+        }
+        Update: {
+          character_id?: string
+          created_at?: string
+          description?: string | null
+          formula?: string
+          id?: string
+          name?: string
+          roll_type?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "character_custom_rolls_character_id_fkey"
+            columns: ["character_id"]
+            isOneToOne: false
+            referencedRelation: "characters"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       character_inventory: {
         Row: {
           character_id: string
@@ -216,6 +309,7 @@ export type Database = {
           attributes: Json | null
           campaign_id: string
           class: string | null
+          class_id: string | null
           created_at: string
           hp_current: number | null
           hp_max: number | null
@@ -224,6 +318,7 @@ export type Database = {
           name: string
           notes: string | null
           skills: Json | null
+          specialization_id: string | null
           updated_at: string
           user_id: string
           weight_current: number | null
@@ -234,6 +329,7 @@ export type Database = {
           attributes?: Json | null
           campaign_id: string
           class?: string | null
+          class_id?: string | null
           created_at?: string
           hp_current?: number | null
           hp_max?: number | null
@@ -242,6 +338,7 @@ export type Database = {
           name: string
           notes?: string | null
           skills?: Json | null
+          specialization_id?: string | null
           updated_at?: string
           user_id: string
           weight_current?: number | null
@@ -252,6 +349,7 @@ export type Database = {
           attributes?: Json | null
           campaign_id?: string
           class?: string | null
+          class_id?: string | null
           created_at?: string
           hp_current?: number | null
           hp_max?: number | null
@@ -260,6 +358,7 @@ export type Database = {
           name?: string
           notes?: string | null
           skills?: Json | null
+          specialization_id?: string | null
           updated_at?: string
           user_id?: string
           weight_current?: number | null
@@ -271,6 +370,20 @@ export type Database = {
             columns: ["campaign_id"]
             isOneToOne: false
             referencedRelation: "campaigns"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "characters_class_id_fkey"
+            columns: ["class_id"]
+            isOneToOne: false
+            referencedRelation: "system_classes"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "characters_specialization_id_fkey"
+            columns: ["specialization_id"]
+            isOneToOne: false
+            referencedRelation: "system_specializations"
             referencedColumns: ["id"]
           },
         ]

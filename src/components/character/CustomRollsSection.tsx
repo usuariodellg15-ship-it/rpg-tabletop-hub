@@ -74,11 +74,11 @@ export function CustomRollsSection({
   const { data: customRolls = [], isLoading } = useQuery({
     queryKey: ['character-custom-rolls', characterId],
     queryFn: async () => {
-      const { data, error } = await (supabase
-        .from('character_custom_rolls' as any)
+      const { data, error } = await supabase
+        .from('character_custom_rolls')
         .select('*')
         .eq('character_id', characterId)
-        .order('created_at') as any);
+        .order('created_at');
       if (error) throw error;
       return (data || []) as CustomRoll[];
     },
@@ -87,15 +87,15 @@ export function CustomRollsSection({
   // Add custom roll mutation
   const addMutation = useMutation({
     mutationFn: async () => {
-      const { error } = await (supabase
-        .from('character_custom_rolls' as any)
+      const { error } = await supabase
+        .from('character_custom_rolls')
         .insert({
           character_id: characterId,
           name: newName,
           formula: newFormula,
           roll_type: newType,
           description: newDesc || null,
-        }) as any);
+        });
       if (error) throw error;
     },
     onSuccess: () => {
@@ -115,10 +115,10 @@ export function CustomRollsSection({
   // Delete custom roll mutation
   const deleteMutation = useMutation({
     mutationFn: async (rollId: string) => {
-      const { error } = await (supabase
-        .from('character_custom_rolls' as any)
+      const { error } = await supabase
+        .from('character_custom_rolls')
         .delete()
-        .eq('id', rollId) as any);
+        .eq('id', rollId);
       if (error) throw error;
     },
     onSuccess: () => {
